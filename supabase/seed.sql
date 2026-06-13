@@ -1,0 +1,11 @@
+-- =====================================================================
+-- JaaiNgan · local seed data (loaded by `supabase db reset`)
+--
+-- Real projects/tasks are owned by an authenticated user (owner_id →
+-- auth.users), so meaningful seed rows require a user id that only exists
+-- after you sign in. Sign in once, copy your uid from the auth.users table,
+-- then add INSERTs here if you want a pre-populated local database.
+--
+-- The running app already ships with rich demo content in demo mode
+-- (see src/lib/seed.ts), so this file is intentionally left empty.
+-- =====================================================================
