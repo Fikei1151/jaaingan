@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { ListChecks, Plus } from "lucide-react";
+import { ChevronDown, ListChecks, Plus } from "lucide-react";
 import { useData } from "@/lib/data-context";
 import { STATUS_CONFIG, STATUS_ORDER } from "@/lib/constants";
 import type { ID, Member, StatusKey, Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Avatar, DueDateChip, PriorityPill, TagPill } from "@/components/ui/pills";
+import {
+  Avatar,
+  DueDateChip,
+  PriorityPill,
+  StatusPill,
+  TagPill,
+} from "@/components/ui/pills";
+import { MenuItem, Popover } from "@/components/ui/popover";
 
 export function BoardView({
   projectId,
@@ -34,7 +41,9 @@ export function BoardView({
   }
 
   return (
-    <div className="flex h-full gap-3 overflow-x-auto px-3 pb-6 pt-2 sm:px-6">
+    <>
+      {/* Desktop: horizontal Kanban with drag-and-drop */}
+      <div className="hidden h-full gap-3 overflow-x-auto px-3 pb-6 pt-2 sm:px-6 md:flex">
       {STATUS_ORDER.map((status) => {
         const columnTasks = tasks.filter((t) => t.status === status);
         const { label, color } = STATUS_CONFIG[status];
@@ -107,6 +116,166 @@ export function BoardView({
           </div>
         );
       })}
+      </div>
+
+      {/* Mobile: vertical stacked board with tap-to-move */}
+      <MobileBoard
+        projectId={projectId}
+        tasks={tasks}
+        todayIso={todayIso}
+        onOpenTask={onOpenTask}
+      />
+    </>
+  );
+}
+
+function MobileBoard({
+  projectId,
+  tasks,
+  todayIso,
+  onOpenTask,
+}: {
+  projectId: ID;
+  tasks: Task[];
+  todayIso: string;
+  onOpenTask: (task: Task) => void;
+}) {
+  const { createTask, moveTask, memberById, subtasksFor } = useData();
+  return (
+    <div className="h-full space-y-5 overflow-y-auto px-3 pb-6 pt-2 md:hidden">
+      {STATUS_ORDER.map((status) => {
+        const col = tasks.filter((t) => t.status === status);
+        const { label, color } = STATUS_CONFIG[status];
+        return (
+          <div key={status}>
+            <div className="mb-1.5 flex items-center gap-2 px-0.5">
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
+                style={{ background: color.bg, color: color.text }}
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color.dot }} />
+                {label}
+              </span>
+              <span className="text-xs text-ink-faint tabular-nums">{col.length}</span>
+            </div>
+            <div className="space-y-2">
+              {col.map((task) => {
+                const subs = subtasksFor(task.id);
+                return (
+                  <MobileCard
+                    key={task.id}
+                    task={task}
+                    todayIso={todayIso}
+                    assignee={memberById(task.assigneeId)}
+                    subDone={subs.filter((s) => s.done).length}
+                    subTotal={subs.length}
+                    onOpen={() => onOpenTask(task)}
+                    onMove={(to) => moveTask(task.id, to, null)}
+                  />
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => onOpenTask(createTask({ projectId, status, title: "" }))}
+                className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-line px-2 py-2 text-sm text-ink-faint transition-colors hover:bg-fill"
+              >
+                <Plus size={15} />
+                เพิ่มงาน
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MobileCard({
+  task,
+  todayIso,
+  assignee,
+  subDone,
+  subTotal,
+  onOpen,
+  onMove,
+}: {
+  task: Task;
+  todayIso: string;
+  assignee?: Member;
+  subDone: number;
+  subTotal: number;
+  onOpen: () => void;
+  onMove: (to: StatusKey) => void;
+}) {
+  return (
+    <div
+      onClick={onOpen}
+      className="cursor-pointer rounded-lg border border-line bg-bg p-3 shadow-[0_1px_2px_rgba(15,15,15,0.04)] transition-colors active:bg-fill"
+    >
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        {/* tap to move status */}
+        <div onClick={(e) => e.stopPropagation()}>
+          <Popover
+            panelClassName="w-[180px]"
+            trigger={({ toggle }) => (
+              <button
+                type="button"
+                onClick={toggle}
+                className="flex items-center gap-1 rounded-md py-0.5 pr-1 transition-colors hover:bg-fill"
+              >
+                <StatusPill status={task.status} />
+                <ChevronDown size={13} className="text-ink-faint" />
+              </button>
+            )}
+          >
+            {({ close }) => (
+              <div>
+                <div className="px-2 py-1 text-xs font-medium text-ink-faint">ย้ายไป</div>
+                {STATUS_ORDER.map((s) => (
+                  <MenuItem
+                    key={s}
+                    active={s === task.status}
+                    onClick={() => {
+                      onMove(s);
+                      close();
+                    }}
+                  >
+                    <StatusPill status={s} />
+                  </MenuItem>
+                ))}
+              </div>
+            )}
+          </Popover>
+        </div>
+        {task.priority !== "none" && <PriorityPill priority={task.priority} />}
+      </div>
+
+      <p className={cn("text-sm leading-snug", task.title ? "text-ink" : "text-ink-faint")}>
+        {task.title || "ไม่มีชื่องาน"}
+      </p>
+
+      {task.tags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {task.tags.map((tag) => (
+            <TagPill key={tag} tag={tag} />
+          ))}
+        </div>
+      )}
+
+      {(task.dueDate || subTotal > 0 || assignee) && (
+        <div className="mt-2 flex items-center gap-2">
+          <DueDateChip date={task.dueDate} todayIso={todayIso} />
+          {subTotal > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs text-ink-faint">
+              <ListChecks size={13} />
+              {subDone}/{subTotal}
+            </span>
+          )}
+          <span className="ml-auto">
+            {assignee && <Avatar name={assignee.name} src={assignee.avatarUrl} size={20} />}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
