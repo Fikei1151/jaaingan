@@ -34,7 +34,7 @@ export function BoardView({
   }
 
   return (
-    <div className="flex h-full gap-3 overflow-x-auto px-6 pb-6 pt-2">
+    <div className="flex h-full gap-3 overflow-x-auto px-3 pb-6 pt-2 sm:px-6">
       {STATUS_ORDER.map((status) => {
         const columnTasks = tasks.filter((t) => t.status === status);
         const { label, color } = STATUS_CONFIG[status];

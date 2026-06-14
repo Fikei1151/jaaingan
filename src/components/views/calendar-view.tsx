@@ -58,7 +58,7 @@ export function CalendarView({
   }
 
   return (
-    <div className="flex h-full flex-col px-6 pb-6 pt-2">
+    <div className="flex h-full flex-col px-2 pb-6 pt-2 sm:px-6">
       {/* nav */}
       <div className="mb-3 flex items-center gap-2">
         <div className="text-base font-semibold">

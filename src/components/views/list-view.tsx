@@ -30,7 +30,7 @@ export function ListView({
   }
 
   return (
-    <div className="mx-auto h-full w-full max-w-[920px] overflow-auto px-6 pb-6 pt-2">
+    <div className="mx-auto h-full w-full max-w-[920px] overflow-auto px-3 pb-6 pt-2 sm:px-6">
       {STATUS_ORDER.map((status) => {
         const group = tasks.filter((t) => t.status === status);
         const { label, color } = STATUS_CONFIG[status];

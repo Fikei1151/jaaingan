@@ -30,7 +30,7 @@ export function TableView({
   }
 
   return (
-    <div className="h-full overflow-auto px-6 pb-6 pt-2">
+    <div className="h-full overflow-auto px-3 pb-6 pt-2 sm:px-6">
       <div className="min-w-[760px] overflow-hidden rounded-lg border border-line">
         {/* header */}
         <div className="grid grid-cols-[minmax(220px,2fr)_130px_120px_140px_110px] border-b border-line bg-sidebar/60 text-xs font-medium text-ink-muted">

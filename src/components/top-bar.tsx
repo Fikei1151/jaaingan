@@ -116,7 +116,7 @@ export function TopBar({
         </div>
       </div>
 
-      <div className="flex items-center gap-1 px-3 sm:px-5">
+      <div className="flex flex-wrap items-center gap-1 px-3 pb-1 sm:px-5">
         {VIEWS.map((v) => (
           <button
             key={v.key}

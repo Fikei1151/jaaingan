@@ -104,7 +104,7 @@ export function TaskModal({ task, onClose }: { task: Task; onClose: () => void }
           </div>
         </div>
 
-        <div className="max-h-[80vh] overflow-y-auto px-6 pb-8 pt-6 sm:px-10">
+        <div className="max-h-[80vh] overflow-y-auto px-4 pb-8 pt-6 sm:px-10">
           <TextArea
             value={title}
             onChange={setTitle}
@@ -341,7 +341,7 @@ function PropertyRow({
     <div className={cn("flex gap-2", alignTop ? "items-start" : "items-center")}>
       <div
         className={cn(
-          "flex w-[140px] shrink-0 items-center gap-2 px-1.5 text-sm text-ink-muted",
+          "flex w-28 shrink-0 items-center gap-2 px-1.5 text-sm text-ink-muted sm:w-[140px]",
           alignTop && "pt-1.5",
         )}
       >
