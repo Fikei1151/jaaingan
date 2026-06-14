@@ -111,16 +111,28 @@ Authentication → Providers → Email)
 โครงสร้างพร้อมแล้ว เปิดใช้งานได้โดยใส่ค่าเพิ่ม ไม่ต้องแก้โค้ด:
 
 **A) แจ้งเตือนเข้ากลุ่ม/แชต LINE (Messaging API)** — 1 workspace ⇄ 1 ปลายทาง LINE
+
+_ตั้งค่าครั้งเดียว (แอดมินเทคนิค):_
 1. สร้าง LINE Official Account + ช่อง **Messaging API** ที่ [LINE Developers](https://developers.line.biz/console/)
-2. ตั้ง secret + deploy edge function:
+2. ตั้ง secret + deploy edge functions:
    ```bash
-   npx supabase secrets set LINE_CHANNEL_ACCESS_TOKEN=...
-   npx supabase functions deploy line-send
+   npx supabase secrets set LINE_CHANNEL_ACCESS_TOKEN=... LINE_CHANNEL_SECRET=...
+   npx supabase functions deploy line-send line-webhook --no-verify-jwt
    ```
-3. เพิ่มบอท (LINE OA) เข้ากลุ่ม → ในแอปเปิดเมนู workspace → **เชื่อมต่อ LINE** →
-   วาง groupId + เลือกเหตุการณ์ (มอบหมาย/เปลี่ยนสถานะ/คอมเมนต์) → บันทึก → ส่งทดสอบ
-   - เมื่อมอบหมายงาน ระบบจะส่ง **Flex Message** เข้ากลุ่ม (และเข้าแชตส่วนตัวของผู้ที่
-     ผูกบัญชี LINE ไว้)
+3. ในคอนโซล LINE → Messaging API: ตั้ง **Webhook URL** เป็น URL ของ `line-webhook`,
+   เปิด *Use webhook* + **“Allow bot to join group chats”**, และปิด auto-reply/greeting
+   ที่ LINE Official Account Manager (เพื่อให้บอทตอบ Group ID ได้)
+
+_เชื่อมแต่ละกลุ่มเข้ากับ workspace (flow):_
+1. เพิ่มบอท (LINE OA) เข้า **กลุ่มที่ต้องการ**
+2. บอทจะ **ส่ง Group ID เข้ากลุ่มทันที** ที่เข้าร่วม (หรือพิมพ์ `id` ในกลุ่มเพื่อขออีกครั้ง)
+3. ในแอป → เมนู workspace (มุมซ้ายบน) → **เชื่อมต่อ LINE** → วาง Group ID ในช่อง
+   Destination ID → เลือกเหตุการณ์ (มอบหมาย/เปลี่ยนสถานะ/คอมเมนต์) → **บันทึก**
+4. กด **ส่งข้อความทดสอบ** เพื่อยืนยัน ✅
+   - เมื่อมอบหมายงาน ระบบจะส่ง **Flex Message** (มีปุ่ม “รับงาน/ทำเสร็จ”) เข้ากลุ่ม
+     และเข้าแชตส่วนตัวของผู้รับผิดชอบที่ผูกบัญชี LINE ไว้
+
+> แต่ละ workspace ผูกได้ 1 ปลายทาง — สลับ workspace แล้วตั้งของแต่ละอันแยกกันได้
 
 **B) เข้าสู่ระบบ / ผูกบัญชีด้วย LINE (LINE Login)**
 1. สร้างช่อง **LINE Login** → ตั้ง Callback URL เป็น `<app>/auth/line/callback`

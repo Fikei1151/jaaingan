@@ -106,10 +106,33 @@ export function LineSettingsModal({ onClose }: { onClose: () => void }) {
         </p>
       ) : (
         <>
-          <p className="mb-4 text-xs leading-relaxed text-ink-muted">
+          <p className="mb-3 text-xs leading-relaxed text-ink-muted">
             ส่งการแจ้งเตือนของ workspace นี้เข้า <strong>กลุ่ม/แชต LINE</strong> ผ่าน
-            Messaging API — เพิ่ม LINE OA เข้ากลุ่ม แล้ววาง destination id ด้านล่าง
+            Messaging API
           </p>
+
+          {/* Connect-a-group flow */}
+          <div className="mb-4 rounded-lg border border-accent/30 bg-accent-soft/50 p-3 text-xs leading-relaxed">
+            <div className="mb-1.5 font-medium text-ink">
+              📋 เชื่อมกลุ่ม LINE กับ workspace นี้ — 4 ขั้นตอน
+            </div>
+            <ol className="list-decimal space-y-1 pl-4 text-ink-muted">
+              <li>
+                เพิ่มบอท (LINE OA) เข้า<strong>กลุ่มที่ต้องการ</strong>
+              </li>
+              <li>
+                บอทจะส่ง <strong>Group ID</strong> เข้ากลุ่มทันที (หรือพิมพ์{" "}
+                <code className="rounded bg-bg px-1">id</code> ในกลุ่มเพื่อขออีกครั้ง)
+              </li>
+              <li>
+                ก๊อป Group ID มาวางในช่อง <strong>Destination ID</strong> ด้านล่าง →
+                กด <strong>บันทึก</strong>
+              </li>
+              <li>
+                กด <strong>ส่งข้อความทดสอบ</strong> เพื่อตรวจสอบ ✅
+              </li>
+            </ol>
+          </div>
 
           <Toggle
             on={draft.enabled}
@@ -141,6 +164,9 @@ export function LineSettingsModal({ onClose }: { onClose: () => void }) {
               placeholder="เช่น Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
               className="w-full rounded-lg border border-line bg-bg px-3 py-2 font-mono text-sm focus:border-accent"
             />
+            <p className="mt-1 text-xs text-ink-faint">
+              ไม่รู้ Group ID? เพิ่มบอทเข้ากลุ่ม แล้วบอทจะส่งให้ — หรือพิมพ์ “id” ในกลุ่ม
+            </p>
           </div>
 
           <div className="mt-4 rounded-lg border border-line p-2">
@@ -211,19 +237,27 @@ export function LineSettingsModal({ onClose }: { onClose: () => void }) {
                   LINE Developers <ExternalLink size={11} />
                 </a>
               </li>
-              <li>คัดลอก Channel access token</li>
               <li>
-                ตั้งเป็น secret:{" "}
+                ตั้ง secret:{" "}
                 <code className="rounded bg-bg px-1">
-                  supabase secrets set LINE_CHANNEL_ACCESS_TOKEN=…
+                  supabase secrets set LINE_CHANNEL_ACCESS_TOKEN=… LINE_CHANNEL_SECRET=…
                 </code>
               </li>
               <li>
+                deploy:{" "}
                 <code className="rounded bg-bg px-1">
-                  supabase functions deploy line-send
+                  supabase functions deploy line-send line-webhook --no-verify-jwt
                 </code>
               </li>
-              <li>เพิ่มบอท (LINE OA) เข้ากลุ่ม แล้วนำ groupId มาวางด้านบน</li>
+              <li>
+                ในคอนโซล LINE → Messaging API: ตั้ง <strong>Webhook URL</strong> เป็น URL
+                ของ <code className="rounded bg-bg px-1">line-webhook</code>, เปิด Use webhook
+                และเปิด <strong>“Allow bot to join group chats”</strong>
+              </li>
+              <li>
+                ปิด auto-reply/greeting ของ OA (ที่ LINE Official Account Manager)
+                เพื่อให้บอทตอบ Group ID ได้
+              </li>
             </ol>
           </details>
         </>

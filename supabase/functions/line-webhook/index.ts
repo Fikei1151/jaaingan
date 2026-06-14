@@ -51,6 +51,27 @@ Deno.serve(async (req) => {
 
   const payload = JSON.parse(raw);
   for (const event of payload.events ?? []) {
+    // Bot was added to a group/room, OR someone typed "id" — reply with the
+    // destination id so it can be pasted into JaaiNgan's "เชื่อมต่อ LINE".
+    const text: string = event.message?.text ?? "";
+    if (
+      event.type === "join" ||
+      (event.type === "message" && /^\s*(id|groupid|\/id)\s*$/i.test(text))
+    ) {
+      const src = event.source ?? {};
+      const id: string | undefined = src.groupId ?? src.roomId ?? src.userId;
+      const kind =
+        src.type === "group" ? "Group" : src.type === "room" ? "Room" : "User";
+      if (event.replyToken && id) {
+        await reply(
+          accessToken,
+          event.replyToken,
+          `✅ พร้อมเชื่อมกับ JaaiNgan\n\n${kind} ID:\n${id}\n\nคัดลอก ID นี้ไปวางในแอป → เมนู workspace (มุมซ้ายบน) → “เชื่อมต่อ LINE” → วางในช่อง Destination ID แล้วกดบันทึก`,
+        );
+      }
+      continue;
+    }
+
     if (event.type !== "postback") continue;
     const params = new URLSearchParams(event.postback?.data ?? "");
     const action = params.get("action");
