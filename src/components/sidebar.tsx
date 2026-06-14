@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  BarChart3,
   Bell,
   Check,
   CheckCheck,
@@ -41,7 +42,9 @@ export function Sidebar({
   onCreateWorkspace,
   onOpenLine,
   screenIsHome,
+  screenIsStats,
   onHome,
+  onStats,
   onSelectProject,
   onOpenPalette,
   onOpenProfile,
@@ -51,7 +54,9 @@ export function Sidebar({
   onCreateWorkspace: () => void;
   onOpenLine: () => void;
   screenIsHome: boolean;
+  screenIsStats: boolean;
   onHome: () => void;
+  onStats: () => void;
   onSelectProject: () => void;
   onOpenPalette: () => void;
   onOpenProfile: () => void;
@@ -253,8 +258,8 @@ export function Sidebar({
         </Popover>
       </div>
 
-      {/* Home */}
-      <div className="px-2 pt-1">
+      {/* Home + Stats */}
+      <div className="space-y-0.5 px-2 pt-1">
         <button
           type="button"
           onClick={() => {
@@ -270,6 +275,22 @@ export function Sidebar({
         >
           <Home size={16} />
           <span>หน้าแรก</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onStats();
+            onNavigate?.();
+          }}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-md px-2 py-1 transition-colors",
+            screenIsStats
+              ? "bg-sidebar-hover font-medium text-ink"
+              : "text-ink-muted hover:bg-sidebar-hover",
+          )}
+        >
+          <BarChart3 size={16} />
+          <span>สถิติ</span>
         </button>
       </div>
 
@@ -422,7 +443,8 @@ export function Sidebar({
           <p className="px-2 py-2 text-xs text-ink-faint">ยังไม่มีหน้างาน</p>
         )}
         {visibleProjects.map((project) => {
-          const isActive = !screenIsHome && project.id === selectedProjectId;
+          const isActive =
+            !screenIsHome && !screenIsStats && project.id === selectedProjectId;
           const count = tasksFor(project.id).length;
           const isRenaming = renamingId === project.id;
           return (

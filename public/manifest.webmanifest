@@ -1,0 +1,19 @@
+{
+  "name": "JaaiNgan — จัดการงานสไตล์ Notion",
+  "short_name": "JaaiNgan",
+  "description": "ระบบจัดการงานของทีม ดีไซน์คล้าย Notion",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2383e2",
+  "lang": "th",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

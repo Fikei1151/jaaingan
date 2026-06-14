@@ -21,6 +21,7 @@ import { TableView } from "@/components/views/table-view";
 import { ListView } from "@/components/views/list-view";
 import { CalendarView } from "@/components/views/calendar-view";
 import { HomeDashboard } from "@/components/home-dashboard";
+import { StatsDashboard } from "@/components/stats-dashboard";
 
 export function Workspace() {
   const {
@@ -33,7 +34,7 @@ export function Workspace() {
     currentWorkspaceId,
   } = useData();
 
-  const [screen, setScreen] = useState<"home" | "project">("home");
+  const [screen, setScreen] = useState<"home" | "project" | "stats">("home");
   const [view, setView] = useState<ViewKey>("board");
   const [search, setSearch] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>(null);
@@ -110,7 +111,9 @@ export function Workspace() {
           onCreateWorkspace={() => setCreateWsOpen(true)}
           onOpenLine={() => setLineOpen(true)}
           screenIsHome={screen === "home"}
+          screenIsStats={screen === "stats"}
           onHome={() => setScreen("home")}
+          onStats={() => setScreen("stats")}
           onSelectProject={() => setScreen("project")}
           onOpenPalette={() => setPaletteOpen(true)}
           onOpenProfile={() => setProfileOpen(true)}
@@ -129,6 +132,8 @@ export function Workspace() {
             onOpenTask={(t) => setOpenTaskId(t.id)}
             onToggleSidebar={() => setSidebarOpen(true)}
           />
+        ) : screen === "stats" ? (
+          <StatsDashboard onToggleSidebar={() => setSidebarOpen(true)} />
         ) : selectedProject ? (
           <>
             <TopBar

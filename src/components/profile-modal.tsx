@@ -1,11 +1,17 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Camera, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, Camera, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useData } from "@/lib/data-context";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { uploadAvatar } from "@/lib/supabase/queries";
+import {
+  isPushConfigured,
+  isPushSubscribed,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "@/lib/push";
 import { Avatar } from "@/components/ui/pills";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
@@ -22,7 +28,37 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [savingPw, setSavingPw] = useState(false);
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const pushAvailable = isPushConfigured();
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!pushAvailable) return;
+    isPushSubscribed()
+      .then(setPushOn)
+      .catch(() => {});
+  }, [pushAvailable]);
+
+  async function togglePush() {
+    if (!user) return;
+    setPushBusy(true);
+    try {
+      if (pushOn) {
+        await unsubscribeFromPush();
+        setPushOn(false);
+        toast.success("ปิดการแจ้งเตือนแล้ว");
+      } else {
+        await subscribeToPush(user.id);
+        setPushOn(true);
+        toast.success("เปิดการแจ้งเตือนบนอุปกรณ์นี้แล้ว");
+      }
+    } catch {
+      toast.error("ตั้งค่าการแจ้งเตือนไม่สำเร็จ");
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   async function onPickAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -172,6 +208,37 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* push notifications (shown only when VAPID is configured) */}
+      {pushAvailable && (
+        <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
+          <div className="flex items-start gap-2">
+            <Bell size={16} className="mt-0.5 text-ink-muted" />
+            <div>
+              <div className="text-sm font-medium">แจ้งเตือนแบบ Push</div>
+              <div className="text-xs text-ink-faint">
+                รับแจ้งเตือนบนอุปกรณ์นี้แม้ไม่ได้เปิดแอป
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={togglePush}
+            disabled={pushBusy}
+            role="switch"
+            aria-checked={pushOn}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+              pushOn ? "bg-accent" : "bg-line"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+                pushOn ? "left-[22px]" : "left-0.5"
+              }`}
+            />
+          </button>
         </div>
       )}
     </Modal>

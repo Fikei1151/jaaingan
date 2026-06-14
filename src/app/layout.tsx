@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -19,6 +19,17 @@ export const metadata: Metadata = {
   title: "JaaiNgan — จัดการงานสไตล์ Notion",
   description:
     "ระบบจัดการงาน (task management) ดีไซน์คล้าย Notion ล็อกอินด้วย Google ขับเคลื่อนด้วย Supabase",
+  manifest: "/manifest.webmanifest",
+  applicationName: "JaaiNgan",
+  appleWebApp: { capable: true, title: "JaaiNgan", statusBarStyle: "default" },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2383e2",
 };
 
 export default function RootLayout({

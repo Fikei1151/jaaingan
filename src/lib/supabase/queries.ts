@@ -436,6 +436,27 @@ export async function deleteCommentRow(db: DB, id: ID): Promise<void> {
 }
 
 // ── activity ──────────────────────────────────────────────────────────
+/** status→done events across a workspace since a date (for completion charts). */
+export async function loadDoneEvents(
+  db: DB,
+  workspaceId: ID,
+  sinceIso: string,
+): Promise<string[]> {
+  const { data, error } = await db
+    .from("activities")
+    .select("created_at, meta")
+    .eq("workspace_id", workspaceId)
+    .eq("type", "status_changed")
+    .gte("created_at", sinceIso)
+    .order("created_at", { ascending: true })
+    .limit(1000);
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data as any[])
+    .filter((r) => r.meta?.to === "done")
+    .map((r) => r.created_at as string);
+}
+
 export async function loadActivities(db: DB, taskId: ID): Promise<Activity[]> {
   const { data, error } = await db
     .from("activities")
