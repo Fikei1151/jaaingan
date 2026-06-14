@@ -71,6 +71,7 @@ interface DataContextValue {
   // members & invites
   members: Member[];
   memberById: (id?: ID) => Member | undefined;
+  refreshMembers: () => Promise<void>;
   loadInvites: () => Promise<Invite[]>;
   inviteMember: (email: string, role: Exclude<Role, "owner">) => Promise<Invite>;
   revokeInvite: (id: ID) => Promise<void>;
@@ -501,6 +502,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── members & invites ───────────────────────────────────────────────
+  const refreshMembers = useCallback(async () => {
+    const ws = stateRef.current?.currentWorkspaceId;
+    if (!db || !ws) return;
+    const members = await q.loadMembers(db, ws);
+    setData((s) => ({ ...s, members }));
+  }, [db, setData]);
+
   const loadInvites = useCallback(async (): Promise<Invite[]> => {
     const ws = stateRef.current?.currentWorkspaceId;
     if (!db || !ws) return [];
@@ -869,6 +877,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       deleteWorkspace,
       members,
       memberById: (id?: ID) => (id ? members.find((m) => m.userId === id) : undefined),
+      refreshMembers,
       loadInvites,
       inviteMember,
       revokeInvite,
@@ -916,6 +925,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     createWorkspace,
     renameWorkspace,
     deleteWorkspace,
+    refreshMembers,
     loadInvites,
     inviteMember,
     revokeInvite,

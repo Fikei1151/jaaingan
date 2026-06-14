@@ -25,6 +25,8 @@ interface AuthContextValue {
     password: string,
     name: string,
   ) => Promise<{ needsConfirmation: boolean }>;
+  updateProfile: (patch: { name?: string; avatarUrl?: string }) => Promise<void>;
+  changePassword: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -126,6 +128,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [live],
   );
 
+  const updateProfile = useCallback(
+    async (patch: { name?: string; avatarUrl?: string }) => {
+      if (!live) {
+        setUser((u) =>
+          u
+            ? {
+                ...u,
+                name: patch.name ?? u.name,
+                avatarUrl: patch.avatarUrl ?? u.avatarUrl,
+              }
+            : u,
+        );
+        return;
+      }
+      const supabase = getSupabaseClient()!;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = {};
+      if (patch.name !== undefined) data.full_name = patch.name;
+      if (patch.avatarUrl !== undefined) data.avatar_url = patch.avatarUrl;
+      const { error } = await supabase.auth.updateUser({ data });
+      if (error) throw error;
+      const { data: u } = await supabase.auth.getUser();
+      if (u.user) {
+        const row: Record<string, unknown> = {};
+        if (patch.name !== undefined) row.name = patch.name;
+        if (patch.avatarUrl !== undefined) row.avatar_url = patch.avatarUrl;
+        await supabase.from("profiles").update(row).eq("id", u.user.id);
+      }
+    },
+    [live],
+  );
+
+  const changePassword = useCallback(
+    async (password: string) => {
+      if (!live) return;
+      const { error } = await getSupabaseClient()!.auth.updateUser({ password });
+      if (error) throw error;
+    },
+    [live],
+  );
+
   const signOut = useCallback(async () => {
     if (!live) {
       saveUser(null);
@@ -144,6 +187,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,
+      updateProfile,
+      changePassword,
       signOut,
     }),
     [
@@ -153,6 +198,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,
+      updateProfile,
+      changePassword,
       signOut,
     ],
   );

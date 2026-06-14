@@ -21,6 +21,7 @@ import {
   Search,
   Sun,
   Trash2,
+  UserCog,
   Users,
 } from "lucide-react";
 import { isLineLoginConfigured, startLineAuth } from "@/lib/line/config";
@@ -43,6 +44,7 @@ export function Sidebar({
   onHome,
   onSelectProject,
   onOpenPalette,
+  onOpenProfile,
 }: {
   onNavigate?: () => void;
   onOpenMembers: () => void;
@@ -52,6 +54,7 @@ export function Sidebar({
   onHome: () => void;
   onSelectProject: () => void;
   onOpenPalette: () => void;
+  onOpenProfile: () => void;
 }) {
   const { user, isLive, signOut } = useAuth();
   const {
@@ -186,13 +189,21 @@ export function Sidebar({
                   เชื่อมบัญชี LINE ของฉัน
                 </MenuItem>
               )}
-              <div className="flex items-center gap-2 px-2 py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenProfile();
+                  close();
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-fill"
+              >
                 <Avatar name={user?.name ?? "U"} src={user?.avatarUrl} size={30} />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{user?.name}</div>
                   <div className="truncate text-xs text-ink-faint">{user?.email}</div>
                 </div>
-              </div>
+                <UserCog size={15} className="text-ink-faint" />
+              </button>
               <div className="my-1 h-px bg-line" />
               <div className="px-2 py-1.5">
                 <div className="mb-1 text-xs text-ink-faint">ธีม</div>

@@ -127,6 +127,17 @@ export interface Notification {
   createdAt: string;
 }
 
+export interface Attachment {
+  id: ID;
+  taskId: ID;
+  uploaderId?: ID;
+  name: string;
+  path: string;
+  mime?: string;
+  size?: number;
+  createdAt: string;
+}
+
 export interface WorkspaceLineLink {
   workspaceId: ID;
   targetType: "group" | "room" | "user";

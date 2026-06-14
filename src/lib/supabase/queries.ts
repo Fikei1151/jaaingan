@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   Activity,
   ActivityType,
+  Attachment,
   Comment,
   ID,
   Invite,
@@ -557,6 +558,112 @@ export async function invokeLineSend(
   body: Record<string, unknown>,
 ): Promise<void> {
   const { error } = await db.functions.invoke("line-send", { body });
+  if (error) throw error;
+}
+
+// ── attachments (Supabase Storage) ────────────────────────────────────
+const ATT_BUCKET = "task-attachments";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mapAttachment = (r: any): Attachment => ({
+  id: r.id,
+  taskId: r.task_id,
+  uploaderId: r.uploader_id ?? undefined,
+  name: r.name,
+  path: r.path,
+  mime: r.mime ?? undefined,
+  size: r.size ?? undefined,
+  createdAt: r.created_at,
+});
+
+export async function loadAttachments(db: DB, taskId: ID): Promise<Attachment[]> {
+  const { data, error } = await db
+    .from("attachments")
+    .select("*")
+    .eq("task_id", taskId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapAttachment);
+}
+
+/** Batch-create signed download URLs for private attachment paths. */
+export async function signAttachmentUrls(
+  db: DB,
+  paths: string[],
+): Promise<Record<string, string>> {
+  if (paths.length === 0) return {};
+  const { data, error } = await db.storage
+    .from(ATT_BUCKET)
+    .createSignedUrls(paths, 3600);
+  if (error) throw error;
+  const map: Record<string, string> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (data ?? []).forEach((d: any) => {
+    if (d.path && d.signedUrl) map[d.path] = d.signedUrl;
+  });
+  return map;
+}
+
+export async function uploadAttachment(
+  db: DB,
+  file: File,
+  taskId: ID,
+  workspaceId: ID,
+  uploaderId: string,
+): Promise<Attachment> {
+  const safe = file.name.replace(/[^\w.\-]+/g, "_");
+  const path = `${workspaceId}/${taskId}/${uuid()}-${safe}`;
+  const up = await db.storage
+    .from(ATT_BUCKET)
+    .upload(path, file, { contentType: file.type || undefined });
+  if (up.error) throw up.error;
+  const { data, error } = await db
+    .from("attachments")
+    .insert({
+      task_id: taskId,
+      workspace_id: workspaceId,
+      uploader_id: uploaderId,
+      name: file.name,
+      path,
+      mime: file.type || null,
+      size: file.size,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapAttachment(data);
+}
+
+export async function deleteAttachment(db: DB, att: Attachment): Promise<void> {
+  await db.storage.from(ATT_BUCKET).remove([att.path]);
+  const { error } = await db.from("attachments").delete().eq("id", att.id);
+  if (error) throw error;
+}
+
+// ── avatar / profile ──────────────────────────────────────────────────
+export async function uploadAvatar(
+  db: DB,
+  file: File,
+  userId: string,
+): Promise<string> {
+  const ext = (file.name.split(".").pop() || "png").toLowerCase();
+  const path = `${userId}/${uuid()}.${ext}`;
+  const up = await db.storage
+    .from("avatars")
+    .upload(path, file, { contentType: file.type || undefined, upsert: true });
+  if (up.error) throw up.error;
+  return db.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+}
+
+export async function updateProfileRow(
+  db: DB,
+  userId: string,
+  patch: { name?: string; avatarUrl?: string },
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (patch.name !== undefined) row.name = patch.name;
+  if (patch.avatarUrl !== undefined) row.avatar_url = patch.avatarUrl;
+  const { error } = await db.from("profiles").update(row).eq("id", userId);
   if (error) throw error;
 }
 

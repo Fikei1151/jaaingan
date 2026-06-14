@@ -8,22 +8,32 @@ import {
   CircleDashed,
   Flag,
   ListChecks,
+  Loader2,
   MessageSquare,
+  Paperclip,
   Plus,
   Tag as TagIcon,
   Trash2,
+  Upload,
   User,
   X,
 } from "lucide-react";
 import { useData } from "@/lib/data-context";
 import { PRIORITY_ORDER, STATUS_CONFIG, STATUS_ORDER, PRIORITY_CONFIG } from "@/lib/constants";
-import type { Activity, Comment, PriorityKey, StatusKey, Task } from "@/lib/types";
+import type { Activity, Attachment, Comment, PriorityKey, StatusKey, Task } from "@/lib/types";
 import { cn, timeAgo } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { mapComment } from "@/lib/supabase/queries";
+import {
+  deleteAttachment,
+  loadAttachments,
+  mapComment,
+  signAttachmentUrls,
+  uploadAttachment,
+} from "@/lib/supabase/queries";
 import { Avatar, PriorityPill, StatusPill, TagPill } from "@/components/ui/pills";
 import { MenuItem, Popover } from "@/components/ui/popover";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useToast } from "@/components/ui/toast";
 
 export function TaskModal({ task, onClose }: { task: Task; onClose: () => void }) {
   const {
@@ -34,6 +44,7 @@ export function TaskModal({ task, onClose }: { task: Task; onClose: () => void }
     memberById,
     isLive,
     currentUserId,
+    currentWorkspaceId,
     subtasksFor,
     addSubtask,
     toggleSubtask,
@@ -309,6 +320,14 @@ export function TaskModal({ task, onClose }: { task: Task; onClose: () => void }
             <SubtaskAdder onAdd={(title) => addSubtask(task.id, title)} />
           </Section>
 
+          {/* attachments */}
+          <AttachmentsSection
+            taskId={task.id}
+            workspaceId={currentWorkspaceId}
+            uploaderId={currentUserId}
+            isLive={isLive}
+          />
+
           {/* comments + activity */}
           <ThreadSection
             taskId={task.id}
@@ -370,6 +389,144 @@ function Section({
       </div>
       {children}
     </div>
+  );
+}
+
+function formatSize(bytes?: number): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function AttachmentsSection({
+  taskId,
+  workspaceId,
+  uploaderId,
+  isLive,
+}: {
+  taskId: string;
+  workspaceId: string | null;
+  uploaderId: string | null;
+  isLive: boolean;
+}) {
+  const toast = useToast();
+  const [items, setItems] = useState<Attachment[]>([]);
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isLive) return;
+    const db = getSupabaseClient();
+    if (!db) return;
+    let active = true;
+    loadAttachments(db, taskId).then(async (atts) => {
+      if (!active) return;
+      setItems(atts);
+      const map = await signAttachmentUrls(db, atts.map((a) => a.path)).catch(() => ({}));
+      if (active) setUrls(map);
+    });
+    return () => {
+      active = false;
+    };
+  }, [taskId, isLive]);
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    e.target.value = "";
+    if (!files?.length || !workspaceId || !uploaderId) return;
+    const db = getSupabaseClient();
+    if (!db) return;
+    setUploading(true);
+    try {
+      for (const f of Array.from(files)) {
+        const att = await uploadAttachment(db, f, taskId, workspaceId, uploaderId);
+        setItems((prev) => [...prev, att]);
+        const m = await signAttachmentUrls(db, [att.path]);
+        setUrls((prev) => ({ ...prev, ...m }));
+      }
+    } catch {
+      toast.error("อัปโหลดไฟล์ไม่สำเร็จ");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function remove(att: Attachment) {
+    const db = getSupabaseClient();
+    if (!db) return;
+    setItems((prev) => prev.filter((x) => x.id !== att.id));
+    try {
+      await deleteAttachment(db, att);
+    } catch {
+      toast.error("ลบไฟล์ไม่สำเร็จ");
+    }
+  }
+
+  if (!isLive) {
+    return (
+      <Section icon={<Paperclip size={14} />} label="ไฟล์แนบ">
+        <p className="text-xs text-ink-faint">แนบไฟล์ได้เมื่อเชื่อม Supabase</p>
+      </Section>
+    );
+  }
+
+  return (
+    <Section
+      icon={<Paperclip size={14} />}
+      label={`ไฟล์แนบ${items.length ? ` · ${items.length}` : ""}`}
+    >
+      <div className="space-y-1.5">
+        {items.map((att) => {
+          const isImage = (att.mime ?? "").startsWith("image/");
+          const url = urls[att.path];
+          return (
+            <div
+              key={att.id}
+              className="group/att flex items-center gap-2 rounded-md border border-line p-1.5"
+            >
+              {isImage && url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={url} alt={att.name} className="h-9 w-9 shrink-0 rounded object-cover" />
+              ) : (
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-fill text-ink-faint">
+                  <Paperclip size={15} />
+                </div>
+              )}
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="min-w-0 flex-1"
+              >
+                <div className="truncate text-sm text-ink">{att.name}</div>
+                <div className="text-xs text-ink-faint">{formatSize(att.size)}</div>
+              </a>
+              <button
+                type="button"
+                onClick={() => remove(att)}
+                className="rounded p-1 text-ink-faint opacity-0 transition-opacity hover:bg-fill hover:text-[#e03e3e] group-hover/att:opacity-100"
+                title="ลบไฟล์"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line px-2 py-2 text-sm text-ink-faint transition-colors hover:bg-fill disabled:opacity-60"
+      >
+        {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+        {uploading ? "กำลังอัปโหลด…" : "อัปโหลดไฟล์"}
+      </button>
+      <input ref={fileRef} type="file" multiple className="hidden" onChange={onPick} />
+    </Section>
   );
 }
 

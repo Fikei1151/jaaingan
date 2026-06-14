@@ -15,6 +15,7 @@ import { TaskModal } from "@/components/task-modal";
 import { MembersModal } from "@/components/members-modal";
 import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
 import { LineSettingsModal } from "@/components/line-settings-modal";
+import { ProfileModal } from "@/components/profile-modal";
 import { BoardView } from "@/components/views/board-view";
 import { TableView } from "@/components/views/table-view";
 import { ListView } from "@/components/views/list-view";
@@ -44,6 +45,7 @@ export function Workspace() {
   const [membersOpen, setMembersOpen] = useState(false);
   const [createWsOpen, setCreateWsOpen] = useState(false);
   const [lineOpen, setLineOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -111,6 +113,7 @@ export function Workspace() {
           onHome={() => setScreen("home")}
           onSelectProject={() => setScreen("project")}
           onOpenPalette={() => setPaletteOpen(true)}
+          onOpenProfile={() => setProfileOpen(true)}
         />
       </div>
       {sidebarOpen && (
@@ -195,6 +198,7 @@ export function Workspace() {
       {membersOpen && <MembersModal onClose={() => setMembersOpen(false)} />}
       {createWsOpen && <CreateWorkspaceModal onClose={() => setCreateWsOpen(false)} />}
       {lineOpen && <LineSettingsModal onClose={() => setLineOpen(false)} />}
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
       {paletteOpen && (
         <CommandPalette
           onClose={() => setPaletteOpen(false)}
