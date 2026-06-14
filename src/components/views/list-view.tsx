@@ -70,9 +70,11 @@ export function ListView({
                     )}
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
-                    {task.tags.slice(0, 2).map((tag) => (
-                      <TagPill key={tag} tag={tag} />
-                    ))}
+                    <span className="hidden items-center gap-2 sm:flex">
+                      {task.tags.slice(0, 2).map((tag) => (
+                        <TagPill key={tag} tag={tag} />
+                      ))}
+                    </span>
                     {task.priority !== "none" && (
                       <PriorityPill priority={task.priority} />
                     )}
