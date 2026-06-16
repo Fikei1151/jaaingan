@@ -25,6 +25,20 @@ const CONNECT_CMD =
 // "/งาน" → reply links to the workspace(s) this chat is connected to.
 const TASKS_CMD = /^\s*\/?\s*(งาน|tasks?|มอบหมาย)\s*$/i;
 
+// "/ของฉัน" → reply the sender's own open tasks in the connected workspace(s).
+const MINE_CMD = /^\s*\/?\s*(ของฉัน|งานฉัน|งานของฉัน|me|mytasks)\s*$/i;
+
+const STATUS_TH: Record<string, string> = {
+  backlog: "ค้าง",
+  todo: "รอทำ",
+  in_progress: "กำลังทำ",
+  done: "เสร็จ",
+};
+
+function bangkokToday(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+}
+
 type SourceKind = "group" | "room" | "user";
 
 // Fetches a LINE group's display name (best-effort; only works for groups the
@@ -141,6 +155,79 @@ function tasksCard(appUrl: string, links: any[]): any {
 }
 
 // deno-lint-ignore no-explicit-any
+function myTasksCard(name: string, tasks: any[], appUrl: string | undefined, today: string): any {
+  // deno-lint-ignore no-explicit-any
+  const body: any[] = [];
+  if (tasks.length === 0) {
+    body.push({
+      type: "text",
+      text: "🎉 ไม่มีงานค้างที่มอบหมายให้คุณ",
+      size: "sm",
+      color: "#448361",
+      wrap: true,
+    });
+  } else {
+    tasks.slice(0, 10).forEach((t, i) => {
+      if (i > 0) body.push({ type: "separator", margin: "md" });
+      const overdue = t.due_date && t.due_date < today;
+      const dueTxt = t.due_date
+        ? overdue
+          ? `⛔ เลยกำหนด ${t.due_date}`
+          : `📅 ${t.due_date}`
+        : "";
+      body.push({
+        type: "box",
+        layout: "vertical",
+        margin: "md",
+        contents: [
+          { type: "text", text: t.title || "ไม่มีชื่องาน", size: "sm", weight: "bold", wrap: true },
+          {
+            type: "text",
+            text: `${STATUS_TH[t.status] ?? t.status}${dueTxt ? "  ·  " + dueTxt : ""}`,
+            size: "xxs",
+            color: overdue ? "#e03e3e" : "#9b9a97",
+            wrap: true,
+          },
+        ],
+      });
+    });
+    if (tasks.length > 10)
+      body.push({ type: "text", text: `…และอีก ${tasks.length - 10} งาน`, size: "xs", color: "#9b9a97", margin: "md" });
+  }
+  return {
+    type: "bubble",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#2383e2",
+      paddingAll: "16px",
+      contents: [
+        { type: "text", text: "📋 งานของฉัน", color: "#ffffff", weight: "bold", size: "md" },
+        { type: "text", text: name, color: "#dCE9FB", size: "sm" },
+      ],
+    },
+    body: { type: "box", layout: "vertical", contents: body },
+    ...(appUrl
+      ? {
+          footer: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                color: "#2383e2",
+                height: "sm",
+                action: { type: "uri", label: "เปิด JaaiNgan", uri: appUrl },
+              },
+            ],
+          },
+        }
+      : {}),
+  };
+}
+
+// deno-lint-ignore no-explicit-any
 function helpCard(): any {
   const cmd = (c: string, desc: string) => ({
     type: "box",
@@ -168,8 +255,9 @@ function helpCard(): any {
       layout: "vertical",
       spacing: "sm",
       contents: [
-        cmd("เชื่อมกลุ่ม", "เชื่อมกลุ่มนี้กับ workspace — บอทจะส่งลิงก์ให้เลือก workspace"),
-        cmd("จ่ายงานเข้ากลุ่ม", "เหมือน “เชื่อมกลุ่ม”"),
+        cmd("เชื่อมกลุ่ม", "เชื่อมกลุ่มนี้กับ workspace (พิมพ์ จ่ายงานเข้ากลุ่ม ก็ได้)"),
+        cmd("งาน", "เปิดลิงก์ดูงานของ workspace ที่เชื่อมกับกลุ่มนี้"),
+        cmd("ของฉัน", "ดูงานที่มอบหมายให้คุณ (เชื่อมบัญชี LINE ก่อน)"),
         cmd("id", "ขอ Group ID ของกลุ่มนี้"),
         { type: "separator", margin: "lg" },
         {
@@ -316,6 +404,62 @@ Deno.serve(async (req) => {
             "งานของทีม",
             tasksCard(appUrl, list),
           );
+        }
+      }
+      continue;
+    }
+
+    // "/ของฉัน" → the sender's own open tasks in this chat's workspace(s).
+    if (event.type === "message" && MINE_CMD.test(text)) {
+      const src = event.source ?? {};
+      const gid: string | undefined = src.groupId ?? src.roomId ?? src.userId;
+      const lineUserId: string | undefined = src.userId;
+      if (event.replyToken && gid) {
+        if (!lineUserId) {
+          await reply(accessToken, event.replyToken, "ดูงานส่วนตัวได้เฉพาะในแชตที่ระบุตัวตนได้");
+        } else {
+          const { data: profile } = await admin
+            .from("profiles")
+            .select("id, name")
+            .eq("line_user_id", lineUserId)
+            .maybeSingle();
+          if (!profile) {
+            await reply(
+              accessToken,
+              event.replyToken,
+              'ยังไม่ได้เชื่อมบัญชี LINE กับ JaaiNgan\nเปิดแอป → เมนูบัญชี (มุมล่างซ้าย) → "เชื่อมบัญชี LINE ของฉัน"',
+            );
+          } else {
+            const { data: links } = await admin
+              .from("workspace_line_links")
+              .select("workspace_id")
+              .eq("target_id", gid)
+              .eq("enabled", true);
+            // deno-lint-ignore no-explicit-any
+            const wsIds = ((links ?? []) as any[]).map((l) => l.workspace_id);
+            if (wsIds.length === 0) {
+              await reply(
+                accessToken,
+                event.replyToken,
+                'กลุ่มนี้ยังไม่ได้เชื่อมกับ workspace — พิมพ์ "เชื่อมกลุ่ม" ก่อน',
+              );
+            } else {
+              const { data: tasks } = await admin
+                .from("tasks")
+                .select("title, status, due_date")
+                .in("workspace_id", wsIds)
+                .eq("assignee_id", profile.id)
+                .neq("status", "done")
+                .order("due_date", { ascending: true })
+                .limit(50);
+              await replyFlex(
+                accessToken,
+                event.replyToken,
+                `งานของ ${profile.name}`,
+                myTasksCard(profile.name ?? "คุณ", tasks ?? [], appUrl, bangkokToday()),
+              );
+            }
+          }
         }
       }
       continue;

@@ -24,7 +24,14 @@ function bangkokToday(): string {
 }
 
 // deno-lint-ignore no-explicit-any
-function digestFlex(workspaceName: string, stats: any, appUrl?: string): any {
+function digestFlex(
+  workspaceName: string,
+  // deno-lint-ignore no-explicit-any
+  stats: any,
+  urgent: { icon: string; color: string; title: string }[],
+  appUrl?: string,
+  // deno-lint-ignore no-explicit-any
+): any {
   const row = (label: string, value: number, color: string) => ({
     type: "box",
     layout: "horizontal",
@@ -33,6 +40,22 @@ function digestFlex(workspaceName: string, stats: any, appUrl?: string): any {
       { type: "text", text: String(value), size: "sm", color, align: "end", weight: "bold" },
     ],
   });
+  // deno-lint-ignore no-explicit-any
+  const body: any[] = [
+    row("⛔ เลยกำหนด", stats.overdue, "#e03e3e"),
+    row("📍 ครบกำหนดวันนี้", stats.dueToday, "#d9730d"),
+    row("🔧 กำลังทำ", stats.inProgress, "#dfab01"),
+    row("📋 ค้างทั้งหมด", stats.open, "#37352f"),
+  ];
+  if (urgent.length > 0) {
+    body.push({ type: "separator", margin: "md" });
+    body.push({ type: "text", text: "ต้องรีบ", size: "xs", color: "#9b9a97", margin: "md" });
+    for (const u of urgent.slice(0, 6)) {
+      body.push({ type: "text", text: `${u.icon} ${u.title}`, size: "xs", color: u.color, wrap: true });
+    }
+    if (urgent.length > 6)
+      body.push({ type: "text", text: `…และอีก ${urgent.length - 6} งาน`, size: "xs", color: "#9b9a97" });
+  }
   return {
     type: "flex",
     altText: `สรุปงานวันนี้ — ${workspaceName}`,
@@ -52,12 +75,7 @@ function digestFlex(workspaceName: string, stats: any, appUrl?: string): any {
         type: "box",
         layout: "vertical",
         spacing: "sm",
-        contents: [
-          row("⛔ เลยกำหนด", stats.overdue, "#e03e3e"),
-          row("📍 ครบกำหนดวันนี้", stats.dueToday, "#d9730d"),
-          row("🔧 กำลังทำ", stats.inProgress, "#dfab01"),
-          row("📋 ค้างทั้งหมด", stats.open, "#37352f"),
-        ],
+        contents: body,
       },
       ...(appUrl
         ? {
@@ -105,7 +123,7 @@ Deno.serve(async (req) => {
   for (const link of links ?? []) {
     const { data: tasks } = await admin
       .from("tasks")
-      .select("status, due_date")
+      .select("title, status, due_date")
       .eq("workspace_id", link.workspace_id)
       .neq("status", "done");
     const open = tasks ?? [];
@@ -117,9 +135,18 @@ Deno.serve(async (req) => {
     };
     if (stats.open === 0) continue;
 
+    const urgent = [
+      ...open
+        .filter((t) => t.due_date && t.due_date < today)
+        .map((t) => ({ icon: "⛔", color: "#e03e3e", title: t.title || "ไม่มีชื่องาน" })),
+      ...open
+        .filter((t) => t.due_date === today)
+        .map((t) => ({ icon: "📍", color: "#d9730d", title: t.title || "ไม่มีชื่องาน" })),
+    ];
+
     // deno-lint-ignore no-explicit-any
     const name = (link as any).workspaces?.name ?? "Workspace";
-    const flex = digestFlex(name, stats, appUrl);
+    const flex = digestFlex(name, stats, urgent, appUrl);
     const res = await fetch(PUSH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
