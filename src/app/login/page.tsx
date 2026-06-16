@@ -45,11 +45,21 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      const pending =
+      const pendingConnect =
+        typeof window !== "undefined"
+          ? localStorage.getItem("jaaingan:pendingLineConnect")
+          : null;
+      const pendingInvite =
         typeof window !== "undefined"
           ? localStorage.getItem("jaaingan:pendingInviteToken")
           : null;
-      router.replace(pending ? `/invite/${pending}` : "/");
+      router.replace(
+        pendingConnect
+          ? pendingConnect
+          : pendingInvite
+            ? `/invite/${pendingInvite}`
+            : "/",
+      );
     }
   }, [user, loading, router]);
 

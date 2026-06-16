@@ -142,6 +142,8 @@ export interface WorkspaceLineLink {
   workspaceId: ID;
   targetType: "group" | "room" | "user";
   targetId?: string;
+  /** Human-readable LINE group/room name (best-effort, for display). */
+  targetName?: string;
   notifyOnAssign: boolean;
   notifyOnComment: boolean;
   notifyOnStatus: boolean;
