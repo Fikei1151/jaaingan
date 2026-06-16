@@ -45,9 +45,16 @@ export default function LineCallbackPage() {
         if (mode === "link") {
           setStatus("เชื่อมบัญชี LINE สำเร็จ ✅");
           setTimeout(() => router.replace("/"), 1200);
-        } else if (data?.actionLink) {
-          // Follow the magic link to establish a Supabase session.
-          window.location.assign(data.actionLink as string);
+        } else if (data?.accessToken && data?.refreshToken) {
+          // Establish the Supabase session directly — no redirect / URL hash.
+          const { error: sErr } = await db.auth.setSession({
+            access_token: data.accessToken as string,
+            refresh_token: data.refreshToken as string,
+          });
+          if (sErr) throw sErr;
+          setStatus("เข้าสู่ระบบสำเร็จ ✅");
+          // Full reload so the app boots with the new session.
+          window.location.assign("/");
         } else {
           setStatus("เข้าสู่ระบบไม่สำเร็จ");
           setTimeout(() => router.replace("/login"), 1500);
