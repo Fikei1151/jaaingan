@@ -27,6 +27,8 @@ interface AuthContextValue {
   ) => Promise<{ needsConfirmation: boolean }>;
   updateProfile: (patch: { name?: string; avatarUrl?: string }) => Promise<void>;
   changePassword: (password: string) => Promise<void>;
+  /** Attach an email + password to the current account (e.g. a LINE account). */
+  setEmailPassword: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -169,6 +171,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [live],
   );
 
+  const setEmailPassword = useCallback(
+    async (email: string, password: string) => {
+      if (!live) return;
+      const db = getSupabaseClient()!;
+      const { data, error } = await db.functions.invoke(
+        "account-set-credentials",
+        { body: { email, password } },
+      );
+      if (error) throw error;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res = data as any;
+      if (res && res.ok === false) throw new Error(res.error || "ตั้งค่าไม่สำเร็จ");
+      // Refresh so the new email shows up in the local session.
+      await db.auth.refreshSession().catch(() => {});
+      const { data: u } = await db.auth.getUser();
+      setUser(mapSupabaseUser(u.user));
+    },
+    [live],
+  );
+
   const signOut = useCallback(async () => {
     if (!live) {
       saveUser(null);
@@ -189,6 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUpWithEmail,
       updateProfile,
       changePassword,
+      setEmailPassword,
       signOut,
     }),
     [
@@ -200,6 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUpWithEmail,
       updateProfile,
       changePassword,
+      setEmailPassword,
       signOut,
     ],
   );

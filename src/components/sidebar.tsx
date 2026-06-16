@@ -165,94 +165,31 @@ export function Sidebar({
                   สร้าง workspace ใหม่
                 </MenuItem>
               )}
-              <div className="my-1 h-px bg-line" />
               {isLive && (
-                <MenuItem
-                  onClick={() => {
-                    onOpenMembers();
-                    close();
-                  }}
-                >
-                  <Users size={15} className="text-ink-muted" />
-                  สมาชิก &amp; คำเชิญ
-                </MenuItem>
-              )}
-              {isLive && (myRole === "owner" || myRole === "admin") && (
-                <MenuItem
-                  onClick={() => {
-                    onOpenLine();
-                    close();
-                  }}
-                >
-                  <MessageCircle size={15} className="text-[#06C755]" />
-                  เชื่อมต่อ LINE
-                </MenuItem>
-              )}
-              {isLive && isLineLoginConfigured() && (
-                <MenuItem onClick={() => startLineAuth("link")}>
-                  <MessageCircle size={15} className="text-[#06C755]" />
-                  เชื่อมบัญชี LINE ของฉัน
-                </MenuItem>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenProfile();
-                  close();
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-fill"
-              >
-                <Avatar name={user?.name ?? "U"} src={user?.avatarUrl} size={30} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{user?.name}</div>
-                  <div className="truncate text-xs text-ink-faint">{user?.email}</div>
-                </div>
-                <UserCog size={15} className="text-ink-faint" />
-              </button>
-              <div className="my-1 h-px bg-line" />
-              <div className="px-2 py-1.5">
-                <div className="mb-1 text-xs text-ink-faint">ธีม</div>
-                <div className="flex items-center gap-0.5 rounded-md bg-fill p-0.5">
-                  {(
-                    [
-                      { v: "light", icon: <Sun size={14} />, label: "สว่าง" },
-                      { v: "dark", icon: <Moon size={14} />, label: "มืด" },
-                      { v: "system", icon: <Monitor size={14} />, label: "ระบบ" },
-                    ] as { v: Theme; icon: React.ReactNode; label: string }[]
-                  ).map((o) => (
-                    <button
-                      key={o.v}
-                      type="button"
-                      onClick={() => setTheme(o.v)}
-                      className={cn(
-                        "flex flex-1 items-center justify-center gap-1 rounded px-1.5 py-1 text-xs transition-colors",
-                        theme === o.v
-                          ? "bg-bg font-medium text-ink shadow-sm"
-                          : "text-ink-muted hover:text-ink",
-                      )}
+                <>
+                  <div className="my-1 h-px bg-line" />
+                  <MenuItem
+                    onClick={() => {
+                      onOpenMembers();
+                      close();
+                    }}
+                  >
+                    <Users size={15} className="text-ink-muted" />
+                    สมาชิก &amp; คำเชิญ
+                  </MenuItem>
+                  {(myRole === "owner" || myRole === "admin") && (
+                    <MenuItem
+                      onClick={() => {
+                        onOpenLine();
+                        close();
+                      }}
                     >
-                      {o.icon}
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="my-1 h-px bg-line" />
-              {!isLive && (
-                <MenuItem
-                  onClick={() => {
-                    resetDemoData();
-                    close();
-                  }}
-                >
-                  <RotateCcw size={15} className="text-ink-muted" />
-                  รีเซ็ตข้อมูลเดโม
-                </MenuItem>
+                      <MessageCircle size={15} className="text-[#06C755]" />
+                      เชื่อมต่อ LINE (กลุ่ม)
+                    </MenuItem>
+                  )}
+                </>
               )}
-              <MenuItem onClick={handleSignOut} danger>
-                <LogOut size={15} />
-                ออกจากระบบ
-              </MenuItem>
             </div>
           )}
         </Popover>
@@ -577,16 +514,111 @@ export function Sidebar({
         </button>
       </nav>
 
-      {/* Supabase status */}
-      <div className="border-t border-line px-3 py-2">
-        <div className="flex items-center gap-2 text-xs text-ink-faint">
-          <Database size={13} />
-          {isLive ? (
-            <span className="text-[#448361]">เชื่อม Supabase แล้ว</span>
-          ) : (
-            <span>โหมดเดโม · ข้อมูลเก็บในเบราว์เซอร์</span>
+      {/* Account (you) — separate from the workspace switcher at the top */}
+      <div className="border-t border-line p-2">
+        <Popover
+          side="top"
+          panelClassName="w-[256px]"
+          trigger={({ toggle }) => (
+            <button
+              type="button"
+              onClick={toggle}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-sidebar-hover"
+            >
+              <Avatar name={user?.name ?? "U"} src={user?.avatarUrl} size={30} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium leading-tight">
+                  {user?.name ?? "บัญชีของฉัน"}
+                </span>
+                <span className="block truncate text-xs text-ink-faint">
+                  {user?.email}
+                </span>
+              </span>
+              <ChevronsUpDown size={14} className="text-ink-faint" />
+            </button>
           )}
-        </div>
+        >
+          {({ close }) => (
+            <div>
+              <div className="px-2 py-1 text-xs font-medium text-ink-faint">
+                บัญชี
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenProfile();
+                  close();
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-fill"
+              >
+                <Avatar name={user?.name ?? "U"} src={user?.avatarUrl} size={30} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{user?.name}</div>
+                  <div className="truncate text-xs text-ink-faint">{user?.email}</div>
+                </div>
+                <UserCog size={15} className="text-ink-faint" />
+              </button>
+              {isLive && isLineLoginConfigured() && (
+                <MenuItem onClick={() => startLineAuth("link")}>
+                  <MessageCircle size={15} className="text-[#06C755]" />
+                  เชื่อมบัญชี LINE ของฉัน
+                </MenuItem>
+              )}
+              <div className="my-1 h-px bg-line" />
+              <div className="px-2 py-1.5">
+                <div className="mb-1 text-xs text-ink-faint">ธีม</div>
+                <div className="flex items-center gap-0.5 rounded-md bg-fill p-0.5">
+                  {(
+                    [
+                      { v: "light", icon: <Sun size={14} />, label: "สว่าง" },
+                      { v: "dark", icon: <Moon size={14} />, label: "มืด" },
+                      { v: "system", icon: <Monitor size={14} />, label: "ระบบ" },
+                    ] as { v: Theme; icon: React.ReactNode; label: string }[]
+                  ).map((o) => (
+                    <button
+                      key={o.v}
+                      type="button"
+                      onClick={() => setTheme(o.v)}
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-1 rounded px-1.5 py-1 text-xs transition-colors",
+                        theme === o.v
+                          ? "bg-bg font-medium text-ink shadow-sm"
+                          : "text-ink-muted hover:text-ink",
+                      )}
+                    >
+                      {o.icon}
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="my-1 h-px bg-line" />
+              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-ink-faint">
+                <Database size={13} />
+                {isLive ? (
+                  <span className="text-[#448361]">เชื่อม Supabase แล้ว</span>
+                ) : (
+                  <span>โหมดเดโม</span>
+                )}
+              </div>
+              {!isLive && (
+                <MenuItem
+                  onClick={() => {
+                    resetDemoData();
+                    close();
+                  }}
+                >
+                  <RotateCcw size={15} className="text-ink-muted" />
+                  รีเซ็ตข้อมูลเดโม
+                </MenuItem>
+              )}
+              <MenuItem onClick={handleSignOut} danger>
+                <LogOut size={15} />
+                ออกจากระบบ
+              </MenuItem>
+            </div>
+          )}
+        </Popover>
       </div>
     </aside>
   );

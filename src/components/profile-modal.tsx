@@ -17,9 +17,14 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
-  const { user, isLive, updateProfile, changePassword } = useAuth();
+  const { user, isLive, updateProfile, changePassword, setEmailPassword } =
+    useAuth();
   const { refreshMembers } = useData();
   const toast = useToast();
+
+  // LINE-only accounts have a synthetic email + no password.
+  const isLineAccount =
+    isLive && (user?.email?.endsWith("@line.jaaingan.local") ?? false);
 
   const [name, setName] = useState(user?.name ?? "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl);
@@ -28,6 +33,9 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [savingPw, setSavingPw] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailPw, setEmailPw] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const pushAvailable = isPushConfigured();
@@ -119,6 +127,27 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function saveEmail() {
+    if (!email.includes("@")) {
+      toast.error("อีเมลไม่ถูกต้อง");
+      return;
+    }
+    if (emailPw.length < 6) {
+      toast.error("รหัสผ่านอย่างน้อย 6 ตัว");
+      return;
+    }
+    setSavingEmail(true);
+    try {
+      await setEmailPassword(email.trim(), emailPw);
+      setEmailPw("");
+      toast.success("ตั้งอีเมล + รหัสผ่านแล้ว — ใช้เข้าสู่ระบบได้เลย");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "ตั้งค่าไม่สำเร็จ");
+    } finally {
+      setSavingEmail(false);
+    }
+  }
+
   return (
     <Modal title="โปรไฟล์ของฉัน" onClose={onClose} width="max-w-md">
       {/* avatar */}
@@ -174,8 +203,48 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {/* change password */}
-      {isLive && (
+      {/* set email + password (LINE-only accounts) */}
+      {isLineAccount && (
+        <div className="mt-5 border-t border-line pt-4">
+          <label className="mb-1 block text-xs font-medium text-ink-muted">
+            เพิ่มอีเมล + รหัสผ่าน
+          </label>
+          <p className="mb-2 text-xs text-ink-faint">
+            ตอนนี้คุณเข้าด้วย LINE — ตั้งอีเมล + รหัสผ่านเพื่อเข้าสู่ระบบด้วยอีเมลได้อีกทาง
+          </p>
+          <div className="space-y-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="อีเมล"
+              autoComplete="email"
+              className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm focus:border-accent"
+            />
+            <input
+              type="password"
+              value={emailPw}
+              onChange={(e) => setEmailPw(e.target.value)}
+              placeholder="ตั้งรหัสผ่าน (อย่างน้อย 6 ตัว)"
+              autoComplete="new-password"
+              className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm focus:border-accent"
+            />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={saveEmail}
+                disabled={savingEmail || !email.includes("@") || emailPw.length < 6}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-95 disabled:opacity-50"
+              >
+                {savingEmail ? "กำลังตั้งค่า…" : "ตั้งอีเมล + รหัสผ่าน"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* change password (hidden for LINE accounts — they use the section above) */}
+      {isLive && !isLineAccount && (
         <div className="mt-5 border-t border-line pt-4">
           <label className="mb-1 block text-xs font-medium text-ink-muted">
             เปลี่ยนรหัสผ่าน

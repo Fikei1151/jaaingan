@@ -8,6 +8,8 @@ interface PopoverProps {
   children: (props: { close: () => void }) => React.ReactNode;
   /** Tailwind alignment classes for the panel. */
   align?: "left" | "right";
+  /** Which side of the trigger the panel opens toward. */
+  side?: "top" | "bottom";
   panelClassName?: string;
 }
 
@@ -16,6 +18,7 @@ export function Popover({
   trigger,
   children,
   align = "left",
+  side = "bottom",
   panelClassName,
 }: PopoverProps) {
   const [open, setOpen] = useState(false);
@@ -45,7 +48,8 @@ export function Popover({
       {open && (
         <div
           className={cn(
-            "jn-pop-in absolute z-50 mt-1 min-w-[180px] rounded-lg border border-line bg-bg p-1 shadow-[0_10px_30px_rgba(15,15,15,0.12)]",
+            "jn-pop-in absolute z-50 min-w-[180px] rounded-lg border border-line bg-bg p-1 shadow-[0_10px_30px_rgba(15,15,15,0.12)]",
+            side === "top" ? "bottom-full mb-1" : "mt-1",
             align === "right" ? "right-0" : "left-0",
             panelClassName,
           )}
