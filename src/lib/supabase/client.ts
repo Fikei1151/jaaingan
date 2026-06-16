@@ -13,8 +13,11 @@ import { createBrowserClient } from "@supabase/ssr";
  * (src/lib/auth-context.tsx) uses real Google OAuth instead of the mock login.
  */
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// .trim() guards against a trailing newline/space pasted into the env value
+// (a trailing "\n" in the anon key breaks the realtime WebSocket auth, which
+// sends the key as a URL query param).
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(url && anonKey);

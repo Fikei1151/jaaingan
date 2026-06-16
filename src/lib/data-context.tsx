@@ -230,10 +230,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setState(null);
       try {
         let workspaces = await q.loadMyWorkspaces(db, ownerId);
-        // Brand-new account → create a personal workspace + starter content.
+        // Brand-new account → create an empty personal workspace (no starter
+        // content — users start with a clean board and add their own pages).
         if (workspaces.length === 0) {
           const ws = await q.createWorkspace(db, "พื้นที่ทำงานของฉัน", "🏠", ownerId);
-          await q.seedStarterData(db, ws.id, ownerId);
           workspaces = [ws];
         }
         const pendingInvites = await q.loadMyPendingInvites(db);
