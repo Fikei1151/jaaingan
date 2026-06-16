@@ -33,6 +33,12 @@ interface SendBody {
 
 // deno-lint-ignore no-explicit-any
 function assignedFlex(b: SendBody): any {
+  // App URL for the "รับงาน / ทำเสร็จ" web buttons (caller's origin, else the
+  // APP_URL secret). When present the buttons open /line/task so the action is
+  // attributed to the logged-in user instead of needing a linked LINE account.
+  const actionUrl = b.appUrl ?? Deno.env.get("APP_URL") ?? "";
+  const taskUrl = (a: "take" | "done") =>
+    `${actionUrl.replace(/\/$/, "")}/line/task?t=${b.taskId}&a=${a}`;
   return {
     type: "flex",
     altText: `📌 มอบหมายงาน: ${b.taskTitle}`,
@@ -66,44 +72,52 @@ function assignedFlex(b: SendBody): any {
         layout: "vertical",
         spacing: "sm",
         contents: [
-          // Interactive buttons → handled by the line-webhook function.
-          ...(b.taskId
+          // "รับงาน / ทำเสร็จ" open the web /line/task page so the action is
+          // attributed to the signed-in user. Falls back to the postback buttons
+          // (handled by line-webhook) when no app URL is available.
+          ...(b.taskId && actionUrl
             ? [
                 {
                   type: "button",
                   style: "primary",
                   color: "#06C755",
                   height: "sm",
-                  action: {
-                    type: "postback",
-                    label: "✅ รับงานนี้",
-                    data: `action=take&taskId=${b.taskId}`,
-                    displayText: "รับงานนี้",
-                  },
+                  action: { type: "uri", label: "✅ รับงานนี้", uri: taskUrl("take") },
                 },
                 {
                   type: "button",
                   style: "secondary",
                   height: "sm",
-                  action: {
-                    type: "postback",
-                    label: "🏁 ทำเสร็จแล้ว",
-                    data: `action=done&taskId=${b.taskId}`,
-                    displayText: "ทำเสร็จแล้ว",
+                  action: { type: "uri", label: "🏁 ทำเสร็จแล้ว", uri: taskUrl("done") },
+                },
+              ]
+            : b.taskId
+              ? [
+                  {
+                    type: "button",
+                    style: "primary",
+                    color: "#06C755",
+                    height: "sm",
+                    action: {
+                      type: "postback",
+                      label: "✅ รับงานนี้",
+                      data: `action=take&taskId=${b.taskId}`,
+                      displayText: "รับงานนี้",
+                    },
                   },
-                },
-              ]
-            : []),
-          ...(b.appUrl
-            ? [
-                {
-                  type: "button",
-                  style: "link",
-                  height: "sm",
-                  action: { type: "uri", label: "เปิดใน JaaiNgan", uri: b.appUrl },
-                },
-              ]
-            : []),
+                  {
+                    type: "button",
+                    style: "secondary",
+                    height: "sm",
+                    action: {
+                      type: "postback",
+                      label: "🏁 ทำเสร็จแล้ว",
+                      data: `action=done&taskId=${b.taskId}`,
+                      displayText: "ทำเสร็จแล้ว",
+                    },
+                  },
+                ]
+              : []),
         ],
       },
     },
