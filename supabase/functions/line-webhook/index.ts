@@ -91,6 +91,51 @@ function connectCard(appUrl: string, id: string, kind: SourceKind, name?: string
   };
 }
 
+// deno-lint-ignore no-explicit-any
+function helpCard(): any {
+  const cmd = (c: string, desc: string) => ({
+    type: "box",
+    layout: "vertical",
+    margin: "md",
+    contents: [
+      { type: "text", text: c, weight: "bold", size: "sm", color: "#06C755" },
+      { type: "text", text: desc, size: "xs", color: "#787774", wrap: true },
+    ],
+  });
+  return {
+    type: "bubble",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#2383e2",
+      paddingAll: "16px",
+      contents: [
+        { type: "text", text: "🤖 คำสั่ง JaaiNgan", color: "#ffffff", weight: "bold", size: "md" },
+        { type: "text", text: "พิมพ์คำสั่งเหล่านี้ในกลุ่มได้เลย", color: "#dCE9FB", size: "xs" },
+      ],
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: [
+        cmd("เชื่อมกลุ่ม", "เชื่อมกลุ่มนี้กับ workspace — บอทจะส่งลิงก์ให้เลือก workspace"),
+        cmd("จ่ายงานเข้ากลุ่ม", "เหมือน “เชื่อมกลุ่ม”"),
+        cmd("id", "ขอ Group ID ของกลุ่มนี้"),
+        { type: "separator", margin: "lg" },
+        {
+          type: "text",
+          text: "เวลามอบหมายงาน บอทจะส่งการ์ดให้กด “รับงาน/ทำเสร็จ” ในกลุ่มอัตโนมัติ",
+          size: "xs",
+          color: "#9b9a97",
+          wrap: true,
+          margin: "md",
+        },
+      ],
+    },
+  };
+}
+
 async function replyFlex(
   token: string,
   replyToken: string,
@@ -148,6 +193,14 @@ Deno.serve(async (req) => {
     // Bot was added to a group/room, OR someone typed a connect command — reply
     // with a card linking to <APP_URL>/line/connect (fallback: raw id as text).
     const text: string = event.message?.text ?? "";
+
+    // "/" (a single slash) → reply with the command help card.
+    if (event.type === "message" && /^\s*\/\s*$/.test(text)) {
+      if (event.replyToken)
+        await replyFlex(accessToken, event.replyToken, "คำสั่ง JaaiNgan", helpCard());
+      continue;
+    }
+
     if (
       event.type === "join" ||
       (event.type === "message" && CONNECT_CMD.test(text))
