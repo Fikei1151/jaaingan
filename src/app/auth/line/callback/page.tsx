@@ -53,8 +53,20 @@ export default function LineCallbackPage() {
           });
           if (sErr) throw sErr;
           setStatus("เข้าสู่ระบบสำเร็จ ✅");
-          // Full reload so the app boots with the new session.
-          window.location.assign("/");
+          // Return to wherever the user was headed before login (e.g. the LINE
+          // connect link they tapped), else the dashboard. Full reload so the
+          // app boots with the new session.
+          const returnTo =
+            typeof window !== "undefined"
+              ? localStorage.getItem("jaaingan:pendingLineConnect")
+              : null;
+          const pendingInvite =
+            typeof window !== "undefined"
+              ? localStorage.getItem("jaaingan:pendingInviteToken")
+              : null;
+          window.location.assign(
+            returnTo ? returnTo : pendingInvite ? `/invite/${pendingInvite}` : "/",
+          );
         } else {
           setStatus("เข้าสู่ระบบไม่สำเร็จ");
           setTimeout(() => router.replace("/login"), 1500);
