@@ -282,6 +282,7 @@ export function Sidebar({
                     onClick={() => {
                       markNotificationRead(n.id);
                       if (n.workspaceId) switchWorkspace(n.workspaceId);
+                      if (n.type === "access_request") onOpenMembers();
                       close();
                       onNavigate?.();
                     }}
@@ -290,15 +291,26 @@ export function Sidebar({
                       !n.read && "bg-accent-soft/50",
                     )}
                   >
-                    <span className="mt-0.5 text-base">📌</span>
+                    <span className="mt-0.5 text-base">
+                      {n.type === "access_request" ? "🙋" : "📌"}
+                    </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm text-ink">
-                        <span className="font-medium">
-                          {memberById(n.actorId)?.name ?? "มีผู้ใช้"}
-                        </span>{" "}
-                        มอบหมายงานให้คุณ
-                      </span>
-                      {n.taskTitle && (
+                      {n.type === "access_request" ? (
+                        <span className="block text-sm text-ink">
+                          <span className="font-medium">
+                            {n.taskTitle ?? "มีผู้ใช้"}
+                          </span>{" "}
+                          ขอเข้าร่วมพื้นที่ทำงาน
+                        </span>
+                      ) : (
+                        <span className="block text-sm text-ink">
+                          <span className="font-medium">
+                            {memberById(n.actorId)?.name ?? "มีผู้ใช้"}
+                          </span>{" "}
+                          มอบหมายงานให้คุณ
+                        </span>
+                      )}
+                      {n.type !== "access_request" && n.taskTitle && (
                         <span className="block truncate text-xs text-ink-muted">
                           “{n.taskTitle}”
                         </span>

@@ -362,6 +362,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           }));
           if (n.type === "assigned")
             toast.info(`📌 มีงานมอบหมายให้คุณ: ${n.taskTitle ?? "งานใหม่"}`);
+          else if (n.type === "access_request")
+            toast.info(`🙋 ${n.taskTitle ?? "มีผู้ใช้"} ขอเข้าร่วมพื้นที่ทำงาน`);
         },
       )
       .subscribe();

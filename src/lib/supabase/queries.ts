@@ -278,6 +278,73 @@ export async function invitePreview(db: DB, token: string) {
     : null;
 }
 
+// ── access requests (request to join a workspace) ─────────────────────
+export async function workspaceAccessInfo(db: DB, workspaceId: ID) {
+  const { data, error } = await db.rpc("workspace_access_info", {
+    p_workspace: workspaceId,
+  });
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = (data as any[])?.[0];
+  return row
+    ? {
+        name: row.name as string,
+        icon: (row.icon as string) ?? "🏢",
+        isMember: Boolean(row.is_member),
+        requestStatus: (row.request_status as string | null) ?? null,
+      }
+    : null;
+}
+
+export async function requestWorkspaceAccess(
+  db: DB,
+  workspaceId: ID,
+): Promise<string> {
+  const { data, error } = await db.rpc("request_workspace_access", {
+    p_workspace: workspaceId,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export interface AccessRequest {
+  id: ID;
+  userId: ID;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  createdAt: string;
+}
+
+export async function loadAccessRequests(
+  db: DB,
+  workspaceId: ID,
+): Promise<AccessRequest[]> {
+  const { data, error } = await db.rpc("pending_access_requests", {
+    p_workspace: workspaceId,
+  });
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data as any[]) ?? []).map((r) => ({
+    id: r.id,
+    userId: r.user_id,
+    name: r.name ?? r.email?.split("@")[0] ?? "ผู้ใช้",
+    email: r.email ?? "",
+    avatarUrl: r.avatar_url ?? undefined,
+    createdAt: r.created_at,
+  }));
+}
+
+export async function approveAccessRequest(db: DB, requestId: ID): Promise<void> {
+  const { error } = await db.rpc("approve_access_request", { p_request: requestId });
+  if (error) throw error;
+}
+
+export async function rejectAccessRequest(db: DB, requestId: ID): Promise<void> {
+  const { error } = await db.rpc("reject_access_request", { p_request: requestId });
+  if (error) throw error;
+}
+
 // ── workspace bundle (projects + tasks + subtasks) ────────────────────
 export async function loadBundle(
   db: DB,

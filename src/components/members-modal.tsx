@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Crown, Link2, Mail, Trash2 } from "lucide-react";
+import { Check, Crown, Link2, Mail, Trash2, X } from "lucide-react";
 import { useData } from "@/lib/data-context";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  approveAccessRequest,
+  loadAccessRequests,
+  rejectAccessRequest,
+  type AccessRequest,
+} from "@/lib/supabase/queries";
 import type { Invite, Role } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/pills";
@@ -32,17 +39,20 @@ export function MembersModal({ onClose }: { onClose: () => void }) {
     myRole,
     currentUserId,
     currentWorkspace,
+    currentWorkspaceId,
     inviteMember,
     revokeInvite,
     loadInvites,
     updateMemberRole,
     removeMember,
+    refreshMembers,
   } = useData();
 
   const toast = useToast();
   const canManage = myRole === "owner" || myRole === "admin";
 
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Exclude<Role, "owner">>("member");
   const [busy, setBusy] = useState(false);
@@ -52,6 +62,40 @@ export function MembersModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (canManage) loadInvites().then(setInvites).catch(() => {});
   }, [canManage, loadInvites]);
+
+  useEffect(() => {
+    if (!canManage || !currentWorkspaceId) return;
+    const db = getSupabaseClient();
+    if (!db) return;
+    loadAccessRequests(db, currentWorkspaceId)
+      .then(setRequests)
+      .catch(() => {});
+  }, [canManage, currentWorkspaceId]);
+
+  async function approve(r: AccessRequest) {
+    const db = getSupabaseClient();
+    if (!db) return;
+    setRequests((prev) => prev.filter((x) => x.id !== r.id));
+    try {
+      await approveAccessRequest(db, r.id);
+      await refreshMembers();
+      toast.success(`เพิ่ม ${r.name} เป็นสมาชิกแล้ว`);
+    } catch {
+      toast.error("อนุมัติไม่สำเร็จ");
+    }
+  }
+
+  async function reject(r: AccessRequest) {
+    const db = getSupabaseClient();
+    if (!db) return;
+    setRequests((prev) => prev.filter((x) => x.id !== r.id));
+    try {
+      await rejectAccessRequest(db, r.id);
+      toast.info("ปฏิเสธคำขอแล้ว");
+    } catch {
+      toast.error("ทำรายการไม่สำเร็จ");
+    }
+  }
 
   async function copy(text: string, key: string) {
     try {
@@ -200,6 +244,41 @@ export function MembersModal({ onClose }: { onClose: () => void }) {
           })}
         </div>
       </div>
+
+      {/* Access requests (people who asked to join via a workspace link) */}
+      {canManage && requests.length > 0 && (
+        <div className="mb-4">
+          <div className="mb-1.5 text-xs font-medium text-ink-muted">
+            คำขอเข้าถึง ({requests.length})
+          </div>
+          <div className="divide-y divide-line overflow-hidden rounded-lg border border-accent/40 bg-accent-soft/30">
+            {requests.map((r) => (
+              <div key={r.id} className="flex items-center gap-3 px-3 py-2">
+                <Avatar name={r.name} src={r.avatarUrl} size={30} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{r.name}</div>
+                  <div className="truncate text-xs text-ink-faint">{r.email}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => approve(r)}
+                  className="flex items-center gap-1 rounded-md bg-[#06C755] px-2.5 py-1 text-xs font-medium text-white hover:brightness-95"
+                >
+                  <Check size={13} /> อนุมัติ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => reject(r)}
+                  className="rounded p-1 text-ink-faint hover:bg-[#ffe2dd] hover:text-[#e03e3e]"
+                  title="ปฏิเสธ"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Pending invites */}
       {canManage && invites.length > 0 && (

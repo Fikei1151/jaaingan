@@ -22,6 +22,9 @@ const REPLY_URL = "https://api.line.me/v2/bot/message/reply";
 const CONNECT_CMD =
   /^\s*\/?\s*(เชื่อมกลุ่ม|จ่ายงานเข้ากลุ่ม|เชื่อมงาน|connect|groupid|id)\s*$/i;
 
+// "/งาน" → reply links to the workspace(s) this chat is connected to.
+const TASKS_CMD = /^\s*\/?\s*(งาน|tasks?|มอบหมาย)\s*$/i;
+
 type SourceKind = "group" | "room" | "user";
 
 // Fetches a LINE group's display name (best-effort; only works for groups the
@@ -87,6 +90,52 @@ function connectCard(appUrl: string, id: string, kind: SourceKind, name?: string
           action: { type: "uri", label: "เลือก workspace ที่จะเชื่อม", uri: url },
         },
       ],
+    },
+  };
+}
+
+// deno-lint-ignore no-explicit-any
+function tasksCard(appUrl: string, links: any[]): any {
+  const base = appUrl.replace(/\/$/, "");
+  return {
+    type: "bubble",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#2383e2",
+      paddingAll: "16px",
+      contents: [
+        { type: "text", text: "📋 งานของทีม", color: "#ffffff", weight: "bold", size: "md" },
+      ],
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: "เปิดดูงานของพื้นที่ทำงานที่เชื่อมกับกลุ่มนี้ (ต้องเป็นสมาชิก หรือขอสิทธิ์เข้าถึง)",
+          size: "sm",
+          color: "#787774",
+          wrap: true,
+        },
+      ],
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: links.slice(0, 4).map((l) => ({
+        type: "button",
+        style: "primary",
+        color: "#2383e2",
+        height: "sm",
+        action: {
+          type: "uri",
+          label: `${l.workspaces?.icon ?? "📋"} ${l.workspaces?.name ?? "งาน"}`.slice(0, 38),
+          uri: `${base}/w/${l.workspace_id}`,
+        },
+      })),
     },
   };
 }
@@ -236,6 +285,36 @@ Deno.serve(async (req) => {
             accessToken,
             event.replyToken,
             `✅ พร้อมเชื่อมกับ JaaiNgan\n\n${label} ID:\n${id}\n\nคัดลอก ID นี้ไปวางในแอป → เมนู workspace (มุมซ้ายบน) → “เชื่อมต่อ LINE” → วางในช่อง Destination ID แล้วกดบันทึก`,
+          );
+        }
+      }
+      continue;
+    }
+
+    // "/งาน" → reply links to the workspace(s) connected to this chat.
+    if (event.type === "message" && TASKS_CMD.test(text)) {
+      const src = event.source ?? {};
+      const id: string | undefined = src.groupId ?? src.roomId ?? src.userId;
+      if (event.replyToken && id) {
+        const { data: links } = await admin
+          .from("workspace_line_links")
+          .select("workspace_id, workspaces(name, icon)")
+          .eq("target_id", id)
+          .eq("enabled", true);
+        // deno-lint-ignore no-explicit-any
+        const list = ((links ?? []) as any[]).filter((l) => l.workspaces);
+        if (list.length === 0) {
+          await reply(
+            accessToken,
+            event.replyToken,
+            'กลุ่มนี้ยังไม่ได้เชื่อมกับ workspace — พิมพ์ "เชื่อมกลุ่ม" เพื่อเชื่อมก่อน',
+          );
+        } else if (appUrl) {
+          await replyFlex(
+            accessToken,
+            event.replyToken,
+            "งานของทีม",
+            tasksCard(appUrl, list),
           );
         }
       }
