@@ -15,6 +15,12 @@ const TARGET_OPTIONS = [
   { value: "user", label: "แชตส่วนตัว (User)" },
 ];
 
+const TYPE_LABEL: Record<WorkspaceLineLink["targetType"], string> = {
+  group: "กลุ่ม LINE",
+  room: "ห้องแชต LINE",
+  user: "แชตส่วนตัว",
+};
+
 function Toggle({
   on,
   onChange,
@@ -89,6 +95,20 @@ export function LineSettingsModal({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function disconnect() {
+    if (!window.confirm("ยกเลิกการเชื่อมกลุ่ม LINE กับ workspace นี้?")) return;
+    setBusy(true);
+    try {
+      await saveLineLink({ targetId: undefined, targetName: undefined });
+      setDraft((d) => ({ ...d, targetId: "" }));
+      toast.success("ยกเลิกการเชื่อมแล้ว");
+    } catch {
+      toast.error("ทำรายการไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Modal
       title={
@@ -111,25 +131,56 @@ export function LineSettingsModal({ onClose }: { onClose: () => void }) {
             Messaging API
           </p>
 
-          {/* Connect-a-group flow */}
+          {/* Connection status + disconnect */}
+          {lineLink?.targetId ? (
+            <div className="mb-4 rounded-lg border border-[#06C755]/40 bg-[#06C755]/5 p-3">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium text-[#06C755]">
+                    ✅ เชื่อมกลุ่มแล้ว
+                  </div>
+                  <div className="mt-0.5 truncate text-sm font-medium text-ink">
+                    {lineLink.targetName ?? TYPE_LABEL[lineLink.targetType]}
+                  </div>
+                  <div className="truncate font-mono text-[11px] text-ink-faint">
+                    {lineLink.targetId}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={disconnect}
+                  disabled={busy}
+                  className="shrink-0 rounded-md border border-line px-2.5 py-1 text-xs text-[#e03e3e] transition-colors hover:bg-[#ffe2dd] disabled:opacity-60"
+                >
+                  ยกเลิกการเชื่อม
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4 rounded-lg border border-line bg-fill/50 p-3 text-xs leading-relaxed text-ink-muted">
+              ยังไม่ได้เชื่อมกลุ่ม — เพิ่มบอทเข้ากลุ่ม แล้วพิมพ์{" "}
+              <code className="rounded bg-bg px-1">เชื่อมกลุ่ม</code> หรือ{" "}
+              <code className="rounded bg-bg px-1">จ่ายงานเข้ากลุ่ม</code> ในกลุ่ม
+              แล้วกดลิงก์ที่บอทส่งมา
+            </div>
+          )}
+
+          {/* Connect-a-group flow (command → link) */}
           <div className="mb-4 rounded-lg border border-accent/30 bg-accent-soft/50 p-3 text-xs leading-relaxed">
             <div className="mb-1.5 font-medium text-ink">
-              📋 เชื่อมกลุ่ม LINE กับ workspace นี้ — 4 ขั้นตอน
+              📋 วิธีเชื่อมกลุ่ม LINE — ไม่ต้องก๊อป ID เอง
             </div>
             <ol className="list-decimal space-y-1 pl-4 text-ink-muted">
               <li>
                 เพิ่มบอท (LINE OA) เข้า<strong>กลุ่มที่ต้องการ</strong>
               </li>
               <li>
-                บอทจะส่ง <strong>Group ID</strong> เข้ากลุ่มทันที (หรือพิมพ์{" "}
-                <code className="rounded bg-bg px-1">id</code> ในกลุ่มเพื่อขออีกครั้ง)
+                พิมพ์ <code className="rounded bg-bg px-1">เชื่อมกลุ่ม</code> หรือ{" "}
+                <code className="rounded bg-bg px-1">จ่ายงานเข้ากลุ่ม</code> ในกลุ่ม
               </li>
               <li>
-                ก๊อป Group ID มาวางในช่อง <strong>Destination ID</strong> ด้านล่าง →
-                กด <strong>บันทึก</strong>
-              </li>
-              <li>
-                กด <strong>ส่งข้อความทดสอบ</strong> เพื่อตรวจสอบ ✅
+                บอทส่ง<strong>ลิงก์</strong>มา → กด → เลือก{" "}
+                <strong>{currentWorkspace?.name ?? "workspace นี้"}</strong> → เสร็จ ✅
               </li>
             </ol>
           </div>
@@ -156,7 +207,7 @@ export function LineSettingsModal({ onClose }: { onClose: () => void }) {
 
           <div className="mt-3">
             <label className="mb-1 block text-xs font-medium text-ink-muted">
-              Destination ID (groupId / roomId / userId)
+              หรือเชื่อมเอง — Destination ID (groupId / roomId / userId)
             </label>
             <input
               value={draft.targetId ?? ""}

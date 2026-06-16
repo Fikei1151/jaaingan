@@ -531,6 +531,7 @@ const mapLineLink = (r: any): WorkspaceLineLink => ({
   workspaceId: r.workspace_id,
   targetType: r.target_type,
   targetId: r.target_id ?? undefined,
+  targetName: r.target_name ?? undefined,
   notifyOnAssign: r.notify_on_assign,
   notifyOnComment: r.notify_on_comment,
   notifyOnStatus: r.notify_on_status,
@@ -559,6 +560,7 @@ export async function upsertLineLink(
   const row: Record<string, unknown> = { workspace_id: workspaceId };
   if ("targetType" in patch) row.target_type = patch.targetType;
   if ("targetId" in patch) row.target_id = patch.targetId || null;
+  if ("targetName" in patch) row.target_name = patch.targetName || null;
   if ("notifyOnAssign" in patch) row.notify_on_assign = patch.notifyOnAssign;
   if ("notifyOnComment" in patch) row.notify_on_comment = patch.notifyOnComment;
   if ("notifyOnStatus" in patch) row.notify_on_status = patch.notifyOnStatus;
@@ -571,6 +573,38 @@ export async function upsertLineLink(
     .single();
   if (error) throw error;
   return mapLineLink(data);
+}
+
+/**
+ * Loads the LINE link summary for several workspaces at once (used by the
+ * /line/connect page to show which of the user's workspaces are already linked
+ * to a group). RLS limits the rows to workspaces the caller is a member of.
+ */
+export async function loadLineLinksForWorkspaces(
+  db: DB,
+  workspaceIds: ID[],
+): Promise<
+  Record<string, { targetId?: string; targetName?: string; enabled: boolean }>
+> {
+  if (workspaceIds.length === 0) return {};
+  const { data, error } = await db
+    .from("workspace_line_links")
+    .select("workspace_id, target_id, target_name, enabled")
+    .in("workspace_id", workspaceIds);
+  if (error) throw error;
+  const map: Record<
+    string,
+    { targetId?: string; targetName?: string; enabled: boolean }
+  > = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ((data as any[]) ?? []).forEach((r) => {
+    map[r.workspace_id] = {
+      targetId: r.target_id ?? undefined,
+      targetName: r.target_name ?? undefined,
+      enabled: r.enabled,
+    };
+  });
+  return map;
 }
 
 /** Invokes the `line-send` edge function (no-op until it's deployed). */
