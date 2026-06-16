@@ -7,6 +7,7 @@ import {
   CheckSquare,
   CircleDashed,
   Flag,
+  Link2,
   ListChecks,
   Loader2,
   MessageSquare,
@@ -25,6 +26,7 @@ import { cn, timeAgo } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   deleteAttachment,
+  insertLinkAttachment,
   loadAttachments,
   mapComment,
   signAttachmentUrls,
@@ -411,9 +413,12 @@ function AttachmentsSection({
   isLive: boolean;
 }) {
   const toast = useToast();
+  const { refreshTaskImages } = useData();
   const [items, setItems] = useState<Attachment[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
+  const [addingLink, setAddingLink] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -439,17 +444,41 @@ function AttachmentsSection({
     const db = getSupabaseClient();
     if (!db) return;
     setUploading(true);
+    let addedImage = false;
     try {
       for (const f of Array.from(files)) {
         const att = await uploadAttachment(db, f, taskId, workspaceId, uploaderId);
         setItems((prev) => [...prev, att]);
         const m = await signAttachmentUrls(db, [att.path]);
         setUrls((prev) => ({ ...prev, ...m }));
+        if ((att.mime ?? "").startsWith("image/")) addedImage = true;
       }
-    } catch {
-      toast.error("อัปโหลดไฟล์ไม่สำเร็จ");
+      if (addedImage) refreshTaskImages().catch(() => {});
+    } catch (err) {
+      console.error("[JaaiNgan] upload failed:", err);
+      toast.error(
+        "อัปโหลดไฟล์ไม่สำเร็จ" +
+          (err instanceof Error && err.message ? `: ${err.message}` : ""),
+      );
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function addLink() {
+    let url = linkUrl.trim();
+    if (!url || !workspaceId || !uploaderId) return;
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    const db = getSupabaseClient();
+    if (!db) return;
+    try {
+      const name = url.replace(/^https?:\/\//, "").replace(/\/+$/, "").slice(0, 60);
+      const att = await insertLinkAttachment(db, taskId, workspaceId, uploaderId, url, name);
+      setItems((prev) => [...prev, att]);
+      setLinkUrl("");
+      setAddingLink(false);
+    } catch {
+      toast.error("เพิ่มลิงค์ไม่สำเร็จ");
     }
   }
 
@@ -459,6 +488,7 @@ function AttachmentsSection({
     setItems((prev) => prev.filter((x) => x.id !== att.id));
     try {
       await deleteAttachment(db, att);
+      if ((att.mime ?? "").startsWith("image/")) refreshTaskImages().catch(() => {});
     } catch {
       toast.error("ลบไฟล์ไม่สำเร็จ");
     }
@@ -479,8 +509,9 @@ function AttachmentsSection({
     >
       <div className="space-y-1.5">
         {items.map((att) => {
+          const isLink = att.mime === "link";
           const isImage = (att.mime ?? "").startsWith("image/");
-          const url = urls[att.path];
+          const url = isLink ? att.path : urls[att.path];
           return (
             <div
               key={att.id}
@@ -491,7 +522,7 @@ function AttachmentsSection({
                 <img src={url} alt={att.name} className="h-9 w-9 shrink-0 rounded object-cover" />
               ) : (
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-fill text-ink-faint">
-                  <Paperclip size={15} />
+                  {isLink ? <Link2 size={15} /> : <Paperclip size={15} />}
                 </div>
               )}
               <a
@@ -501,7 +532,9 @@ function AttachmentsSection({
                 className="min-w-0 flex-1"
               >
                 <div className="truncate text-sm text-ink">{att.name}</div>
-                <div className="text-xs text-ink-faint">{formatSize(att.size)}</div>
+                <div className="truncate text-xs text-ink-faint">
+                  {isLink ? att.path : formatSize(att.size)}
+                </div>
               </a>
               <button
                 type="button"
@@ -516,15 +549,47 @@ function AttachmentsSection({
         })}
       </div>
 
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        disabled={uploading}
-        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line px-2 py-2 text-sm text-ink-faint transition-colors hover:bg-fill disabled:opacity-60"
-      >
-        {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-        {uploading ? "กำลังอัปโหลด…" : "อัปโหลดไฟล์"}
-      </button>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-line px-2 py-2 text-sm text-ink-faint transition-colors hover:bg-fill disabled:opacity-60"
+        >
+          {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+          {uploading ? "กำลังอัปโหลด…" : "อัปโหลดไฟล์"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setAddingLink((v) => !v)}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-line px-2 py-2 text-sm text-ink-faint transition-colors hover:bg-fill"
+        >
+          <Link2 size={15} />
+          เพิ่มลิงค์
+        </button>
+      </div>
+      {addingLink && (
+        <div className="mt-2 flex gap-2">
+          <input
+            autoFocus
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addLink();
+            }}
+            placeholder="วางลิงค์ (https://…)"
+            className="min-w-0 flex-1 rounded-md border border-line bg-bg px-2 py-1.5 text-sm focus:border-accent"
+          />
+          <button
+            type="button"
+            onClick={addLink}
+            disabled={!linkUrl.trim()}
+            className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-95 disabled:opacity-50"
+          >
+            เพิ่ม
+          </button>
+        </div>
+      )}
       <input ref={fileRef} type="file" multiple className="hidden" onChange={onPick} />
     </Section>
   );

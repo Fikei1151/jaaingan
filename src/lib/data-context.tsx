@@ -52,6 +52,7 @@ interface AppData {
   pendingInvites: PendingInvite[];
   notifications: Notification[];
   lineLink: WorkspaceLineLink | null;
+  taskImages: Record<string, string>;
   selectedProjectId: ID | null;
 }
 
@@ -96,6 +97,9 @@ interface DataContextValue {
   updateTask: (id: ID, patch: Partial<Task>) => void;
   deleteTask: (id: ID) => void;
   moveTask: (id: ID, toStatus: StatusKey, beforeTaskId: ID | null) => void;
+  /** Signed thumbnail URL of a task's first image attachment (board covers). */
+  taskImage: (taskId: ID) => string | undefined;
+  refreshTaskImages: () => Promise<void>;
   // subtasks
   subtasksFor: (taskId: ID) => Subtask[];
   addSubtask: (taskId: ID, title: string) => void;
@@ -169,10 +173,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       workspaceId: ID,
       pendingInvites: PendingInvite[],
     ): Promise<AppData> => {
-      const [bundle, members, lineLink] = await Promise.all([
+      const [bundle, members, lineLink, taskImages] = await Promise.all([
         q.loadBundle(database, workspaceId),
         q.loadMembers(database, workspaceId),
         q.loadLineLink(database, workspaceId).catch(() => null),
+        q.loadTaskImages(database, workspaceId).catch(
+          () => ({}) as Record<string, string>,
+        ),
       ]);
       return {
         workspaces,
@@ -184,6 +191,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         pendingInvites,
         notifications: stateRef.current?.notifications ?? [],
         lineLink,
+        taskImages,
         selectedProjectId: bundle.projects[0]?.id ?? null,
       };
     },
@@ -217,6 +225,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           pendingInvites: [],
           notifications: [],
           lineLink: null,
+          taskImages: {},
           selectedProjectId: demo.selectedProjectId,
         });
         return;
@@ -261,6 +270,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             pendingInvites: [],
             notifications: [],
             lineLink: null,
+            taskImages: {},
             selectedProjectId: null,
           });
       }
@@ -439,6 +449,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       appUrl: typeof window !== "undefined" ? window.location.origin : undefined,
     });
   }, [db, ownerId]);
+
+  const refreshTaskImages = useCallback(async () => {
+    const ws = stateRef.current?.currentWorkspaceId;
+    if (!db || !ws) return;
+    const taskImages = await q
+      .loadTaskImages(db, ws)
+      .catch(() => ({}) as Record<string, string>);
+    setData((s) => ({ ...s, taskImages }));
+  }, [db, setData]);
 
   // ── workspaces ──────────────────────────────────────────────────────
   const switchWorkspace = useCallback(
@@ -900,6 +919,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       updateTask,
       deleteTask,
       moveTask,
+      taskImage: (id: ID) => state?.taskImages?.[id],
+      refreshTaskImages,
       subtasksFor,
       addSubtask,
       toggleSubtask,
@@ -942,6 +963,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     updateTask,
     deleteTask,
     moveTask,
+    refreshTaskImages,
     subtasksFor,
     addSubtask,
     toggleSubtask,

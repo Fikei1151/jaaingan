@@ -26,7 +26,7 @@ export function BoardView({
   todayIso: string;
   onOpenTask: (task: Task) => void;
 }) {
-  const { createTask, moveTask, memberById, subtasksFor } = useData();
+  const { createTask, moveTask, memberById, subtasksFor, taskImage } = useData();
   const [draggingId, setDraggingId] = useState<ID | null>(null);
   const [overColumn, setOverColumn] = useState<StatusKey | null>(null);
 
@@ -89,6 +89,7 @@ export function BoardView({
                     key={task.id}
                     task={task}
                     todayIso={todayIso}
+                    cover={taskImage(task.id)}
                     assignee={memberById(task.assigneeId)}
                     subDone={subs.filter((s) => s.done).length}
                     subTotal={subs.length}
@@ -140,7 +141,7 @@ function MobileBoard({
   todayIso: string;
   onOpenTask: (task: Task) => void;
 }) {
-  const { createTask, moveTask, memberById, subtasksFor } = useData();
+  const { createTask, moveTask, memberById, subtasksFor, taskImage } = useData();
   return (
     <div className="h-full space-y-5 overflow-y-auto px-3 pb-6 pt-2 md:hidden">
       {STATUS_ORDER.map((status) => {
@@ -166,6 +167,7 @@ function MobileBoard({
                     key={task.id}
                     task={task}
                     todayIso={todayIso}
+                    cover={taskImage(task.id)}
                     assignee={memberById(task.assigneeId)}
                     subDone={subs.filter((s) => s.done).length}
                     subTotal={subs.length}
@@ -193,6 +195,7 @@ function MobileBoard({
 function MobileCard({
   task,
   todayIso,
+  cover,
   assignee,
   subDone,
   subTotal,
@@ -201,6 +204,7 @@ function MobileCard({
 }: {
   task: Task;
   todayIso: string;
+  cover?: string;
   assignee?: Member;
   subDone: number;
   subTotal: number;
@@ -212,6 +216,10 @@ function MobileCard({
       onClick={onOpen}
       className="cursor-pointer rounded-lg border border-line bg-bg p-3 shadow-[0_1px_2px_rgba(15,15,15,0.04)] transition-colors active:bg-fill"
     >
+      {cover && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={cover} alt="" className="mb-2 h-28 w-full rounded-md object-cover" />
+      )}
       <div className="mb-1.5 flex items-center justify-between gap-2">
         {/* tap to move status */}
         <div onClick={(e) => e.stopPropagation()}>
@@ -283,6 +291,7 @@ function MobileCard({
 function Card({
   task,
   todayIso,
+  cover,
   assignee,
   subDone,
   subTotal,
@@ -294,6 +303,7 @@ function Card({
 }: {
   task: Task;
   todayIso: string;
+  cover?: string;
   assignee?: Member;
   subDone: number;
   subTotal: number;
@@ -325,6 +335,10 @@ function Card({
         dragging && "opacity-40",
       )}
     >
+      {cover && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={cover} alt="" className="mb-2 h-24 w-full rounded-md object-cover" />
+      )}
       {task.priority !== "none" && (
         <div className="mb-1.5">
           <PriorityPill priority={task.priority} />

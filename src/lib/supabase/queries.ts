@@ -722,9 +722,64 @@ export async function uploadAttachment(
 }
 
 export async function deleteAttachment(db: DB, att: Attachment): Promise<void> {
-  await db.storage.from(ATT_BUCKET).remove([att.path]);
+  // Link attachments have no storage object (path holds the URL).
+  if (att.mime !== "link") await db.storage.from(ATT_BUCKET).remove([att.path]);
   const { error } = await db.from("attachments").delete().eq("id", att.id);
   if (error) throw error;
+}
+
+/**
+ * Adds a link "attachment" (no file). Reuses the attachments table: `path`
+ * stores the URL and `mime` is the sentinel "link" — so no schema change.
+ */
+export async function insertLinkAttachment(
+  db: DB,
+  taskId: ID,
+  workspaceId: ID,
+  uploaderId: string,
+  url: string,
+  name: string,
+): Promise<Attachment> {
+  const { data, error } = await db
+    .from("attachments")
+    .insert({
+      task_id: taskId,
+      workspace_id: workspaceId,
+      uploader_id: uploaderId,
+      name: name || url,
+      path: url,
+      mime: "link",
+      size: null,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapAttachment(data);
+}
+
+/** First image attachment per task in a workspace → signed thumbnail URL. */
+export async function loadTaskImages(
+  db: DB,
+  workspaceId: ID,
+): Promise<Record<string, string>> {
+  const { data, error } = await db
+    .from("attachments")
+    .select("task_id, path, created_at")
+    .eq("workspace_id", workspaceId)
+    .like("mime", "image/%")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = ((data as any[]) ?? []) as { task_id: string; path: string }[];
+  const firstByTask = new Map<string, string>();
+  for (const r of rows) if (!firstByTask.has(r.task_id)) firstByTask.set(r.task_id, r.path);
+  if (firstByTask.size === 0) return {};
+  const signed = await signAttachmentUrls(db, [...firstByTask.values()]).catch(
+    () => ({}) as Record<string, string>,
+  );
+  const out: Record<string, string> = {};
+  for (const [taskId, path] of firstByTask) if (signed[path]) out[taskId] = signed[path];
+  return out;
 }
 
 // ── avatar / profile ──────────────────────────────────────────────────
