@@ -616,6 +616,38 @@ export async function invokeLineSend(
   if (error) throw error;
 }
 
+/**
+ * Loads a single task + its project/assignee names for the /line/task page
+ * (the web "take / complete" flow reached from a LINE card button). RLS only
+ * returns the row if the caller is a member of the task's workspace.
+ */
+export async function loadTaskForLine(
+  db: DB,
+  taskId: ID,
+): Promise<{ task: Task; projectName?: string; assigneeName?: string } | null> {
+  const { data, error } = await db
+    .from("tasks")
+    .select("*")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const task = mapTask(data);
+  const [proj, assignee] = await Promise.all([
+    db.from("projects").select("name").eq("id", task.projectId).maybeSingle(),
+    task.assigneeId
+      ? db.from("profiles").select("name").eq("id", task.assigneeId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  return {
+    task,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    projectName: (proj as any).data?.name ?? undefined,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    assigneeName: (assignee as any).data?.name ?? undefined,
+  };
+}
+
 // ── attachments (Supabase Storage) ────────────────────────────────────
 const ATT_BUCKET = "task-attachments";
 
