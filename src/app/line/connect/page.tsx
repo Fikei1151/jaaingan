@@ -127,11 +127,26 @@ function LineConnect() {
         targetName: groupName || undefined,
         enabled: true,
       });
-      setPhase("done");
+      finishConnect(db, ws);
     } catch {
       setError("เชื่อมไม่สำเร็จ ลองใหม่อีกครั้ง");
       setPhase("error");
     }
+  }
+
+  // Marks the connected workspace as active (so a reload lands on it) and posts
+  // a confirmation into the LINE group (best-effort), then shows the done screen.
+  function finishConnect(
+    db: NonNullable<ReturnType<typeof getSupabaseClient>>,
+    ws: Workspace,
+  ) {
+    if (typeof window !== "undefined" && user)
+      localStorage.setItem(`jaaingan:ws:${user.id}`, ws.id);
+    db.functions
+      .invoke("line-connect-confirm", { body: { workspaceId: ws.id } })
+      .catch(() => {});
+    setSavedWs(ws);
+    setPhase("done");
   }
 
   async function createAndConnect() {
@@ -148,8 +163,7 @@ function LineConnect() {
         targetName: groupName || undefined,
         enabled: true,
       });
-      setSavedWs(ws);
-      setPhase("done");
+      finishConnect(db, ws);
     } catch {
       setError("สร้าง/เชื่อมไม่สำเร็จ ลองใหม่อีกครั้ง");
       setPhase("error");
@@ -202,7 +216,7 @@ function LineConnect() {
           </p>
           <button
             type="button"
-            onClick={() => router.replace("/")}
+            onClick={() => window.location.assign("/")}
             className="mt-5 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white hover:brightness-95"
           >
             เปิด JaaiNgan
