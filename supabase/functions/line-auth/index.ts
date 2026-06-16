@@ -120,29 +120,36 @@ Deno.serve(async (req) => {
       .eq("id", created.user.id);
   }
 
-  // Issue a one-time magic link the client can follow to establish a session.
-  // Redirect it back to the app that started the flow (prod or localhost),
-  // derived from the callback URL the client sent — so it does NOT depend on the
-  // project's global Site URL (which otherwise sends every login to localhost).
-  // The origin must be allow-listed in Supabase Auth → URL Configuration.
-  let redirectTo: string | undefined;
-  try {
-    redirectTo = new URL(body.redirectUri).origin + "/";
-  } catch {
-    redirectTo = undefined;
-  }
+  // Mint a session for this user WITHOUT any browser redirect: generate a
+  // one-time magic-link token, then verify it server-side to obtain the
+  // access/refresh tokens. The client calls supabase.auth.setSession() with
+  // these. This avoids the #access_token hash redirect (which the @supabase/ssr
+  // cookie client doesn't consume) and the project Site URL entirely.
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,
-    options: redirectTo ? { redirectTo } : undefined,
   });
   if (linkErr) return json({ error: linkErr.message }, 400);
 
-  // The client should redirect to action_link (or verify the OTP) to sign in.
+  const props = linkData.properties;
+  const verifyRes = await fetch(`${supabaseUrl}/auth/v1/verify`, {
+    method: "POST",
+    headers: { apikey: anonKey, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: props?.verification_type ?? "magiclink",
+      token_hash: props?.hashed_token,
+    }),
+  });
+  if (!verifyRes.ok) {
+    return json({ error: "verify_failed", detail: await verifyRes.text() }, 400);
+  }
+  const session = await verifyRes.json();
+
+  // The client should call supabase.auth.setSession({ access_token, refresh_token }).
   return json({
     login: true,
-    email,
-    actionLink: linkData.properties?.action_link,
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
     displayName,
   });
 });
