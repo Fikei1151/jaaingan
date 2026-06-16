@@ -121,9 +121,20 @@ Deno.serve(async (req) => {
   }
 
   // Issue a one-time magic link the client can follow to establish a session.
+  // Redirect it back to the app that started the flow (prod or localhost),
+  // derived from the callback URL the client sent — so it does NOT depend on the
+  // project's global Site URL (which otherwise sends every login to localhost).
+  // The origin must be allow-listed in Supabase Auth → URL Configuration.
+  let redirectTo: string | undefined;
+  try {
+    redirectTo = new URL(body.redirectUri).origin + "/";
+  } catch {
+    redirectTo = undefined;
+  }
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,
+    options: redirectTo ? { redirectTo } : undefined,
   });
   if (linkErr) return json({ error: linkErr.message }, 400);
 
