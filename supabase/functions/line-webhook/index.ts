@@ -190,8 +190,6 @@ Deno.serve(async (req) => {
   const payload = JSON.parse(raw);
   const appUrl = Deno.env.get("APP_URL");
   for (const event of payload.events ?? []) {
-    // Bot was added to a group/room, OR someone typed a connect command — reply
-    // with a card linking to <APP_URL>/line/connect (fallback: raw id as text).
     const text: string = event.message?.text ?? "";
 
     // "/" (a single slash) → reply with the command help card.
@@ -201,10 +199,21 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    if (
-      event.type === "join" ||
-      (event.type === "message" && CONNECT_CMD.test(text))
-    ) {
+    // Bot added to a group/room → brief greeting only (NO connect card), so no
+    // one can mis-tap "connect"; the setup person sends a command when ready.
+    if (event.type === "join") {
+      if (event.replyToken)
+        await reply(
+          accessToken,
+          event.replyToken,
+          'สวัสดีครับ 👋 ผมคือบอท JaaiNgan\nพิมพ์ "เชื่อมกลุ่ม" เมื่อต้องการเชื่อมห้องนี้กับ workspace ของคุณ (หรือพิมพ์ "/" เพื่อดูคำสั่งทั้งหมด)',
+        );
+      continue;
+    }
+
+    // Connect command → reply the workspace-picker card linking to /line/connect
+    // (fallback: raw id as text when APP_URL isn't set).
+    if (event.type === "message" && CONNECT_CMD.test(text)) {
       const src = event.source ?? {};
       const id: string | undefined = src.groupId ?? src.roomId ?? src.userId;
       const kind: SourceKind =
