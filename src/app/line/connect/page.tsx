@@ -2,10 +2,11 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, MessageCircle } from "lucide-react";
+import { Check, MessageCircle, Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
+  createWorkspace,
   loadLineLinksForWorkspaces,
   loadMyWorkspaces,
   upsertLineLink,
@@ -53,6 +54,8 @@ function LineConnect() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [links, setLinks] = useState<Record<string, LinkSummary>>({});
   const [savedWs, setSavedWs] = useState<Workspace | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
 
   const targetLabel =
     targetType === "group"
@@ -101,12 +104,10 @@ function LineConnect() {
         ).catch(() => ({}) as Record<string, LinkSummary>);
         setWorkspaces(manageable);
         setLinks(linkMap);
-        if (manageable.length === 0) {
-          setError("คุณยังไม่มี workspace ที่เป็นเจ้าของหรือผู้ดูแล จึงยังเชื่อมกลุ่มไม่ได้");
-          setPhase("error");
-        } else {
-          setPhase("pick");
-        }
+        // No manageable workspace yet → still show the picker so the user can
+        // create one and connect in a single step.
+        if (manageable.length === 0) setCreating(true);
+        setPhase("pick");
       } catch {
         setError("โหลดรายชื่อ workspace ไม่สำเร็จ ลองใหม่อีกครั้ง");
         setPhase("error");
@@ -129,6 +130,28 @@ function LineConnect() {
       setPhase("done");
     } catch {
       setError("เชื่อมไม่สำเร็จ ลองใหม่อีกครั้ง");
+      setPhase("error");
+    }
+  }
+
+  async function createAndConnect() {
+    const name = newName.trim();
+    if (!name || !user) return;
+    const db = getSupabaseClient();
+    if (!db) return;
+    setPhase("saving");
+    try {
+      const ws = await createWorkspace(db, name, "🏠", user.id);
+      await upsertLineLink(db, ws.id, {
+        targetType,
+        targetId: gid,
+        targetName: groupName || undefined,
+        enabled: true,
+      });
+      setSavedWs(ws);
+      setPhase("done");
+    } catch {
+      setError("สร้าง/เชื่อมไม่สำเร็จ ลองใหม่อีกครั้ง");
       setPhase("error");
     }
   }
@@ -240,6 +263,43 @@ function LineConnect() {
             </button>
           );
         })}
+      </div>
+
+      {/* create a brand-new workspace and connect this chat to it */}
+      <div className="mt-3 border-t border-line pt-3">
+        {creating ? (
+          <div className="flex gap-2">
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") createAndConnect();
+              }}
+              placeholder="ชื่อ workspace ใหม่"
+              disabled={phase === "saving"}
+              className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2 text-sm focus:border-accent"
+            />
+            <button
+              type="button"
+              onClick={createAndConnect}
+              disabled={phase === "saving" || !newName.trim()}
+              className="shrink-0 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:brightness-95 disabled:opacity-50"
+            >
+              สร้าง + เชื่อม
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            disabled={phase === "saving"}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line px-3 py-2.5 text-sm text-ink-muted transition-colors hover:border-accent hover:text-ink disabled:opacity-60"
+          >
+            <Plus size={16} />
+            สร้าง workspace ใหม่แล้วเชื่อม
+          </button>
+        )}
       </div>
 
       <p className="mt-5 break-all text-center text-[11px] text-ink-faint">
